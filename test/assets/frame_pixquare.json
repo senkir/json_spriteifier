@@ -1,0 +1,32 @@
+{ "frames": {
+  "Crow 0.aseprite": {
+    "frame": { "x": 0, "y": 0, "w": 64, "h": 64 },
+    "filename" : "Crow fly 0",
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 64, "h": 64 },
+    "sourceSize": { "w": 64, "h": 64 },
+    "duration": 100
+  }
+},
+  "meta": {
+    "app": "Pixquare",
+    "version": "2.74.1",
+    "image": "Crow.png",
+    "format": "RGBA8888",
+    "size": { "w": 512, "h": 64 },
+    "scale": 1,
+    "frameTags": [
+      {
+        "color" : "#FFFFFFFF",
+        "direction" : "forward",
+        "from" : 0,
+        "loop" : 0,
+        "name" : "Takeoff",
+        "to" : 6
+      }
+    ],
+    "layers": [],
+    "slices": []
+  }
+}

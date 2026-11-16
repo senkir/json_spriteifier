@@ -1,0 +1,8 @@
+{
+  "name": "Blink",
+  "from": 2,
+  "to": 7,
+  "direction": "forward",
+  "color": "#ffffffff",
+  "loop": 0
+}

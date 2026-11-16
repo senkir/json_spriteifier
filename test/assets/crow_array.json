@@ -1,0 +1,47 @@
+{
+  "frames" : [
+    {
+      "duration" : 100,
+      "filename" : "Crow 0",
+      "frame" : {
+        "h" : 64,
+        "w" : 64,
+        "x" : 30,
+        "y" : 30
+      },
+      "rotated" : false,
+      "sourceSize" : {
+        "h" : 64,
+        "w" : 64
+      },
+      "spriteSourceSize" : {
+        "h" : 64,
+        "w" : 64,
+        "x" : 0,
+        "y" : 0
+      },
+      "trimmed" : false
+    }
+  ],
+  "meta" : {
+    "app" : "Pixquare",
+    "format" : "RGBA888",
+    "frameTags" : [
+      {
+        "color" : "#FFFFFFFF",
+        "direction" : "forward",
+        "from" : 2,
+        "loop" : 0,
+        "name" : "Blink",
+        "to" : 7
+      }
+    ],
+    "image" : "Crow.png",
+    "scale" : 1,
+    "size" : {
+      "h" : 104,
+      "w" : 104
+    },
+    "version" : "2.74.1"
+  }
+}

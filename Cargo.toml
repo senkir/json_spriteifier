@@ -1,0 +1,39 @@
+[package]
+name = "json-spriteifier"
+version = "0.1.0"
+edition = "2024"
+description = "Read exported Sprite Json from apps like Asprite and load directly into Bevy TextureAtlasLayout"
+
+[dependencies]
+
+bevy = { version = "0.20.1", default-features = false, features = [
+    "bevy_render",
+    "bevy_asset",
+    "bevy_sprite",
+    "bevy_sprite_render",
+    "bevy_color"
+] }
+###########################
+# MORE PLUGINS
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.154"
+
+bevy_common_assets = { version = "0.18.0", features = ["json"] }
+
+
+# Enable a small amount of optimization in the dev profile for your code
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (including Bevy), but not for your code
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
+lto = "thin"
