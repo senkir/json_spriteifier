@@ -19,14 +19,14 @@ const KEY_FRAME_PREFIX: &str = "f_";
 
 /// Asset holding loaded data
 #[derive(Asset, TypePath)]
-pub struct SpriteAsset {
+pub struct SpriteSheetAsset {
     pub schema: Handle<SpriteSheet>,
     tags: HashMap<String,Handle<SpriteAnimationAsset>>,
     frames: HashMap<String, Handle<SpriteFrameAsset>>,
     pub layout: Handle<TextureAtlasLayout>,
 }
 
-impl SpriteAsset {
+impl SpriteSheetAsset {
     pub fn tags(&self, tag: &str) -> Option<&Handle<SpriteAnimationAsset>> { self.tags.get(tag) }
     pub fn frame(&self, name: &str) -> Option<&Handle<SpriteFrameAsset>> { self.frames.get(name) }
 }
@@ -92,7 +92,7 @@ impl SpriteJsonLoader {
 }
 
 impl AssetLoader for SpriteJsonLoader {
-    type Asset = SpriteAsset;
+    type Asset = SpriteSheetAsset;
 
     type Settings = ();
     type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -102,7 +102,7 @@ impl AssetLoader for SpriteJsonLoader {
         reader: &mut dyn Reader,
         _settings: &Self::Settings,
         load_context: &mut LoadContext<'_>,
-    ) -> Result<SpriteAsset, Self::Error> {
+    ) -> Result<SpriteSheetAsset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let sprite_schema = from_slice::<SpriteSheet>(&bytes)?;
@@ -114,7 +114,7 @@ impl AssetLoader for SpriteJsonLoader {
         //add tagged animation keyframes
         let frame_handles = self.load_indices(&sprite_schema, load_context);
         let sheet_handle = load_context.add_labeled_asset(KEY_SPRITE_SHEET, sprite_schema);
-        Ok(SpriteAsset {
+        Ok(SpriteSheetAsset {
             schema: sheet_handle,
             tags: tag_handles,
             frames: frame_handles,
