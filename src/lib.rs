@@ -7,17 +7,17 @@
 //!
 
 pub mod animator;
-pub mod assets;
 pub mod parser;
 pub mod frame;
+pub mod loader;
 
 use bevy::app::{App, Plugin};
 use bevy::prelude::AssetApp;
 
 pub use parser::schema::{SpriteSheet, SpriteAtFrame};
-pub use assets::loader::{SpriteSheetAsset, SpriteJsonLoader};
 pub use animator::{SpriteAnimationAsset, SpriteAnimationMode};
 pub use frame::SpriteFrameAsset;
+use crate::loader::{SpriteJsonLoader, SpriteSheetAsset};
 
 /// The primary plugin
 pub struct JsonSpriteifierPlugin;

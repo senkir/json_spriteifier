@@ -26,14 +26,13 @@ pub struct SpriteSheetAsset {
     pub layout: Handle<TextureAtlasLayout>,
 }
 
-
 impl SpriteSheetAsset {
     /// find matching tag
     pub fn find_tag(&self, tag: &str) -> Option<&Handle<SpriteAnimationAsset>> { self.tags.get(tag) }
-
+    
     /// find matching frame
     pub fn find_frame(&self, name: &str) -> Option<&Handle<SpriteFrameAsset>> { self.frames.get(name) }
-
+    
     /// build a texture atlas for this sprite sheet
     pub fn atlas(&self, atlas_index: usize) -> TextureAtlas {
         TextureAtlas::from(self.layout.clone()).with_index(atlas_index)
@@ -55,7 +54,7 @@ impl SpriteJsonLoader {
     fn load_asset_layout(&self, sprite_schema: &SpriteSheet) -> TextureAtlasLayout {
         let mut layout = TextureAtlasLayout::new_empty(sprite_schema.sheet_size());
         for frame in sprite_schema.frames.iter() {
-            layout.add_texture(frame.rect());
+            layout.add_texture(frame.frame);
         }
         layout
     }
@@ -90,7 +89,7 @@ impl SpriteJsonLoader {
             let asset = load_context.add_labeled_asset(
                 format!("{}{}",KEY_FRAME_PREFIX, name.clone()),
                 SpriteFrameAsset {
-                    frame: frame.rect(),
+                    frame: frame.frame,
                     index: i,
                 },
             );

@@ -26,7 +26,7 @@ pub struct SpriteSheet {
 impl SpriteSheet {
     /// overall sheet size of source image
     pub fn sheet_size(&self) -> UVec2 {
-        self.meta.size.as_vec()
+        self.meta.size
     }
 
     pub fn sprite_size(&self) -> UVec2 {
@@ -34,32 +34,8 @@ impl SpriteSheet {
             UVec2::ZERO
         } else {
             let frame = self.frames.first().unwrap();
-            frame.source_size.as_vec()
+            frame.source_size
         }
-    }
-
-    pub fn col_count(&self) -> u32 {
-        let mut count: u32 = 0;
-        let mut last_x: i32 = -1;
-        for frame in self.frames.iter() {
-            if last_x < frame.frame.x {
-                count += 1;
-                last_x = frame.frame.x
-            }
-        }
-        count
-    }
-
-    pub fn row_count(&self) -> u32 {
-        let mut count: u32 = 0;
-        let mut last_x: i32 = -1;
-        for frame in self.frames.iter() {
-            if last_x < frame.frame.y {
-                count += 1;
-                last_x = frame.frame.y
-            }
-        }
-        count
     }
 
     /// attempt to get the SpriteSheet frame for the given name key
@@ -78,23 +54,18 @@ impl SpriteSheet {
 pub struct SpriteAtFrame {
     //duration in Ms this sprite should show in animation context.
     pub duration: usize,
-    pub frame: Frame,
+    #[serde(deserialize_with = "deserialize_rect")]
+    pub frame: URect,
     pub rotated: bool,
-    pub source_size: Size,
-    #[serde(rename = "spriteSourceSize")]
-    pub sprited_source_size: Frame,
+    #[serde(deserialize_with = "deserialize_size")]
+    pub source_size: UVec2,
+    #[serde(rename = "spriteSourceSize", deserialize_with = "deserialize_rect")]
+    pub sprited_source_size: URect,
     trimmed: bool,
 
     /// Key from the object form of `frames`; `None` for the array form.
     #[serde(skip)]
     pub name: Option<String>,
-}
-
-impl SpriteAtFrame {
-    /// rect for sprite frame
-    pub fn rect(&self) -> URect {
-        self.frame.rect()
-    }
 }
 
 /// metadata
@@ -117,7 +88,8 @@ pub struct Meta {
     #[serde(deserialize_with = "deserialize_scale")]
     pub scale: usize,
     /// image size for sheet
-    pub size: Size,
+    #[serde(deserialize_with = "deserialize_size")]
+    pub size: UVec2,
 }
 
 #[derive(Deserialize, Debug, Eq, PartialEq, Clone)]
@@ -147,36 +119,34 @@ pub struct FrameTag {
 
 /// raw frame dimensions and start params
 #[derive(Deserialize, Debug, Eq, PartialEq, Clone)]
-pub struct Frame {
+struct Frame {
     pub h: i32,
     pub w: i32,
     pub x: i32,
     pub y: i32,
 }
 
-impl Frame {
-    pub fn size(&self) -> UVec2 {
-        UVec2::new(self.w as u32, self.h as u32)
-    }
-    pub fn offset(&self) -> UVec2 {
-        UVec2::new(self.x as u32, self.y as u32)
-    }
-
-    pub fn rect(&self) -> URect {
-        URect::new(self.x as u32, self.y as u32, self.w as u32, self.h as u32)
+impl From<Frame> for URect {
+    fn from(frame: Frame) -> Self {
+        URect::new(
+            frame.x as u32,
+            frame.y as u32,
+            frame.w as u32,
+            frame.h as u32,
+        )
     }
 }
 
 /// size data in pixels
 #[derive(Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
-pub struct Size {
+struct Size {
     pub h: i32,
     pub w: i32,
 }
 
-impl Size {
-    pub fn as_vec(&self) -> UVec2 {
-        UVec2::new(self.w as u32, self.h as u32)
+impl From<Size> for UVec2 {
+    fn from(size: Size) -> UVec2 {
+        UVec2::new(size.w as u32, size.h as u32)
     }
 }
 
@@ -205,6 +175,28 @@ where
         SizeType::Num(num) => Ok(num),
         SizeType::Str(string) => string.parse().map_err(Error::custom),
     }
+}
+
+fn deserialize_size<'de, D>(deserializer: D) -> Result<UVec2, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let size = Size::deserialize(deserializer)?;
+    Ok(UVec2::new(size.w as u32, size.h as u32))
+}
+
+fn deserialize_rect<'de, D>(deserializer: D) -> Result<URect, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let frame = Frame::deserialize(deserializer)?;
+
+    Ok(URect::new(
+        frame.x as u32,
+        frame.y as u32,
+        frame.w as u32,
+        frame.h as u32,
+    ))
 }
 
 fn deserialize_sprite_sheet<'de, D>(deserializer: D) -> Result<Vec<SpriteAtFrame>, D::Error>
@@ -286,20 +278,20 @@ mod test {
         vec.push(SpriteAtFrame {
             duration: 100,
             name: Some("Crow 0.aseprite".to_string()),
-            frame: Frame {
+            frame: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             rotated: false,
-            source_size: Size { h: 64, w: 64 },
-            sprited_source_size: Frame {
+            source_size: UVec2::from(Size { h: 64, w: 64 }),
+            sprited_source_size: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             trimmed: false,
         });
 
@@ -311,7 +303,7 @@ mod test {
                 format: "RGBA8888".to_string(),
                 image: "Crow.png".to_string(),
                 scale: 1,
-                size: Size { w: 512, h: 64 },
+                size: UVec2::from(Size { w: 512, h: 64 }),
                 frame_tags: tags,
             },
             indices: HashMap::new(),
@@ -327,20 +319,20 @@ mod test {
         vec.push(SpriteAtFrame {
             duration: 100,
             name: Some("Crow 0.aseprite".to_string()),
-            frame: Frame {
+            frame: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             rotated: false,
-            source_size: Size { h: 64, w: 64 },
-            sprited_source_size: Frame {
+            source_size: UVec2::from(Size { h: 64, w: 64 }),
+            sprited_source_size: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             trimmed: false,
         });
 
@@ -360,7 +352,7 @@ mod test {
                 format: "RGBA8888".to_string(),
                 image: "Crow.png".to_string(),
                 scale: 1,
-                size: Size { w: 512, h: 64 },
+                size: UVec2::from(Size { w: 512, h: 64 }),
                 frame_tags: tags,
             },
             frames: vec,
@@ -373,20 +365,20 @@ mod test {
         SpriteAtFrame {
             duration: 100,
             name: Some(name.to_string()),
-            frame: Frame {
+            frame: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x,
                 y: 0,
-            },
+            }),
             rotated: false,
-            source_size: Size { h: 64, w: 64 },
-            sprited_source_size: Frame {
+            source_size: UVec2::from(Size { h: 64, w: 64 }),
+            sprited_source_size: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             trimmed: false,
         }
     }
@@ -395,15 +387,15 @@ mod test {
         SpriteAtFrame {
             duration: 100,
             name: None,
-            frame: Frame { h: 64, w: 64, x, y },
+            frame: URect::from(Frame { h: 64, w: 64, x, y }),
             rotated: false,
-            source_size: Size { h: 64, w: 64 },
-            sprited_source_size: Frame {
+            source_size: UVec2::from(Size { h: 64, w: 64 }),
+            sprited_source_size: URect::from(Frame {
                 h: 64,
                 w: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             trimmed: false,
         }
     }
@@ -437,7 +429,7 @@ mod test {
                 format: "RGBA8888".to_string(),
                 image: "Crow.png".to_string(),
                 scale: 1,
-                size: Size { w: 512, h: 64 },
+                size: UVec2::from(Size { w: 512, h: 64 }),
                 frame_tags: tags,
             },
             frames: vec,
@@ -468,7 +460,7 @@ mod test {
                 format: "RGBA888".to_string(),
                 image: "Crow.png".to_string(),
                 scale: 1,
-                size: Size { w: 104, h: 104 },
+                size: UVec2::from(Size { w: 104, h: 104 }),
                 frame_tags: tags,
             },
             frames: vec,
@@ -504,19 +496,19 @@ mod test {
         let reference = SpriteAtFrame {
             duration: 100,
             rotated: false,
-            frame: Frame {
+            frame: URect::from(Frame {
                 w: 64,
                 h: 64,
                 x: 0,
                 y: 0,
-            },
-            source_size: Size { w: 64, h: 64 },
-            sprited_source_size: Frame {
+            }),
+            source_size: UVec2::from(Size { w: 64, h: 64 }),
+            sprited_source_size: URect::from(Frame {
                 w: 64,
                 h: 64,
                 x: 0,
                 y: 0,
-            },
+            }),
             trimmed: false,
             name: None,
         };
@@ -573,7 +565,7 @@ mod test {
             format: "RGBA8888".to_string(),
             scale: 1,
             image: "Crow.png".to_string(),
-            size: Size { h: 64, w: 512 },
+            size: UVec2::from(Size { h: 64, w: 512 }),
             frame_tags: Vec::new(),
         };
         assert_data_of_type(json, matcher);
@@ -597,7 +589,7 @@ mod test {
             format: "RGBA8888".to_string(),
             scale: 1,
             image: "Crow.png".to_string(),
-            size: Size { h: 64, w: 512 },
+            size: UVec2::from(Size { h: 64, w: 512 }),
             frame_tags: Vec::new(),
         };
         assert_data_of_type(json, matcher);
