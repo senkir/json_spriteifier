@@ -1,28 +1,15 @@
 use bevy::math::UVec2;
-use bevy::prelude::{Asset, Component, TypePath, Vec2};
+use bevy::prelude::{Asset, Component, TypePath, URect};
 use serde::de::{Error, MapAccess};
 use serde::{Deserialize, Deserializer};
 use std::fmt::Formatter;
 // region schema
 
-
-/// derived sprite frame
-#[derive(Component, Asset, Clone, TypePath)]
-pub struct SpriteFrame {
-    name: Option<String>,
-    duration: usize,
-    size: UVec2,
-    offset: UVec2
-}
-
-
-
-
 // Aseprite and Pixquare
 // both can export using a `json` schema that is pretty similar
 //
 #[derive(Asset, TypePath, Deserialize, Debug, PartialEq, Eq, Clone)]
-pub struct SpriteSchema {
+pub struct SpriteSheet {
     /// raw frame data
     #[serde(deserialize_with = "deserialize_sprite_sheet")]
     pub frames: Vec<SpriteSheetIndex>,
@@ -30,7 +17,7 @@ pub struct SpriteSchema {
     pub meta: Meta,
 }
 
-impl SpriteSchema {
+impl SpriteSheet {
     /// overall sheet size of source image
     pub fn sheet_size(&self) -> UVec2 {
         self.meta.size.as_vec()
@@ -86,13 +73,8 @@ pub struct SpriteSheetIndex {
 
 impl SpriteSheetIndex {
 
-    pub fn to_sprite_frame(&self) -> SpriteFrame {
-        SpriteFrame {
-            name: self.filename.clone(),
-            duration: self.duration,
-            size: self.frame.size(),
-            offset: self.frame.offset()
-        }
+    pub fn rect(&self) -> URect {
+        self.frame.rect()
     }
 }
 
@@ -127,21 +109,21 @@ struct ColorTag(String);
 #[serde(rename_all = "camelCase")]
 pub struct FrameTag {
     /// tag name
-    name: String,
+    pub name: String,
     /// the color in hex
-    color: ColorTag,
+    pub color: ColorTag,
     /// render direction such as "forward"
     pub direction: String,
     /// start frame
-    pub from: u32,
+    pub from: usize,
     /// end frame
-    pub to: u32,
+    pub to: usize,
 
     /// looping flag
     /// Pixquare writes 0 = loop forever
     /// Asprite omits it entirely
     #[serde(default, rename = "loop", deserialize_with = "deserialize_loop")]
-    pub looping: Option<u32>,
+    pub looping: Option<usize>,
 }
 
 /// raw frame dimensions and start params
@@ -161,6 +143,9 @@ impl Frame {
         UVec2::new(self.x as u32, self.y as u32)
     }
 
+    pub fn rect(&self) -> URect {
+        URect::new(self.x as u32, self.y as u32, self.w as u32, self.h as u32)
+    }
 }
 
 /// size data in pixels
@@ -179,11 +164,11 @@ impl Size {
 
 // endregion
 
-fn deserialize_loop<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+fn deserialize_loop<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let option: Option<u32> = Option::deserialize(deserializer)?;
+    let option: Option<usize> = Option::deserialize(deserializer)?;
     Ok(option.map(|looped| looped))
 }
 
@@ -287,7 +272,7 @@ mod test {
         });
 
         let mut tags = Vec::new();
-        let obj = SpriteSchema {
+        let obj = SpriteSheet {
             meta: Meta {
                 app: "https://www.aseprite.org/".to_string(),
                 version: "1.3.18.6-arm64-trial".to_string(),
@@ -335,7 +320,7 @@ mod test {
             color: ColorTag("#FFFFFFFF".to_string()),
             looping: Some(0),
         });
-        let obj = SpriteSchema {
+        let obj = SpriteSheet {
             meta: Meta {
                 app: "Pixquare".to_string(),
                 version: "2.74.1".to_string(),
@@ -388,7 +373,7 @@ mod test {
             to: 7,
             looping: None,
         });
-        let obj = SpriteSchema {
+        let obj = SpriteSheet {
             meta: Meta {
                 app: "https://www.aseprite.org/".to_string(),
                 version: "1.3.18.6-arm64-trial".to_string(),

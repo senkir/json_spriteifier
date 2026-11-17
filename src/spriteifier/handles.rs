@@ -1,4 +1,4 @@
-use crate::spriteifier::schema::{SpriteSchema, SpriteSheetIndex};
+use crate::spriteifier::schema::{SpriteSheet, SpriteSheetIndex};
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, Assets, LoadContext};
 use bevy::image::TextureAtlasLayout;
@@ -19,7 +19,7 @@ use bevy::tasks::ConditionalSendFuture;
 
 /// handle to a sprite schema loaded from disc
 #[derive(Resource)]
-pub struct SchemaHandle(Handle<SpriteSchema>);
+pub struct SchemaHandle(Handle<SpriteSheet>);
 
 
 // this is an example implementation fo setup that loads a single json.
@@ -28,7 +28,7 @@ pub fn setup(
     mut commands: Commands,
 ) {
     //TODO: the sprite path should load here
-    let handle: Handle<SpriteSchema> = asset_server.load("sprites.json");
+    let handle: Handle<SpriteSheet> = asset_server.load("sprites.json");
     commands.insert_resource(SchemaHandle(handle));
 }
 
@@ -36,7 +36,7 @@ pub fn setup(
 pub fn on_asset_ready(
     mut commands: Commands,
     handle: Res<SchemaHandle>,
-    schemas: Res<Assets<SpriteSchema>>,
+    schemas: Res<Assets<SpriteSheet>>,
 ) {
     if let Some(schema) = schemas.get(&handle.0) {
         //do stuff with the sprite sheet
@@ -45,9 +45,8 @@ pub fn on_asset_ready(
 }
 
 pub fn handle_json_sprite_sheet(
-    sprite_schema: &SpriteSchema,
-    texture_atlas_layouts: &mut Assets<TextureAtlasLayout>,
-    asset_server: &AssetServer) {
+    sprite_schema: &SpriteSheet,
+    texture_atlas_layouts: &mut Assets<TextureAtlasLayout>) {
 
     //TODO: maybe this async
 

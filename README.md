@@ -1,5 +1,5 @@
 
-# Spritifier
+# Json-Spriteifier
 
 a bevy utility to simplify setting up sprite assets.
 
