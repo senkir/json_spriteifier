@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::animator::SpriteAnimationAsset;
 use crate::frame::SpriteFrameAsset;
 use crate::parser::schema::SpriteSheet;
@@ -8,7 +9,7 @@ use bevy::prelude::{Handle, TypePath};
 use serde_json::from_slice;
 
 /// supported extensions for the loader
-const EXTENSIONS: [&str; 2] = ["json", "sprites.json"];
+const EXTENSIONS: [&str; 1] = ["json"];
 
 const KEY_SPRITE_SHEET: &str = "sheet";
 const KEY_TEXTURE_LAYOUT: &str = "layout";
@@ -20,9 +21,14 @@ const KEY_FRAME_PREFIX: &str = "f_";
 #[derive(Asset, TypePath)]
 pub struct SpriteAsset {
     pub schema: Handle<SpriteSheet>,
-    pub tags: Vec<Handle<SpriteAnimationAsset>>,
-    pub frames: Vec<Handle<SpriteFrameAsset>>,
+    tags: HashMap<String,Handle<SpriteAnimationAsset>>,
+    frames: HashMap<String, Handle<SpriteFrameAsset>>,
     pub layout: Handle<TextureAtlasLayout>,
+}
+
+impl SpriteAsset {
+    pub fn tags(&self, tag: &str) -> Option<&Handle<SpriteAnimationAsset>> { self.tags.get(tag) }
+    pub fn frame(&self, name: &str) -> Option<&Handle<SpriteFrameAsset>> { self.frames.get(name) }
 }
 
 // region loader
@@ -37,22 +43,6 @@ impl SpriteJsonLoader {
         SpriteJsonLoader {}
     }
 
-    fn load_animation_tags(
-        &self,
-        sprites: &SpriteSheet,
-        load_context: &mut LoadContext,
-    ) -> Vec<Handle<SpriteAnimationAsset>> {
-        let mut vec = Vec::with_capacity(sprites.meta.frame_tags.len());
-        for tag in sprites.meta.frame_tags.iter() {
-            let anim_asset = SpriteAnimationAsset::from_tag(tag.clone());
-            vec.push(load_context.add_labeled_asset(
-                format!("{}{}", KEY_TAG_PREFIX, anim_asset.tag.clone()),
-                anim_asset.clone(),
-            ));
-        }
-        vec
-    }
-
     fn load_asset_layout(&self, sprite_schema: &SpriteSheet) -> TextureAtlasLayout {
         let mut layout = TextureAtlasLayout::new_empty(sprite_schema.sheet_size());
         for frame in sprite_schema.frames.iter() {
@@ -61,26 +51,43 @@ impl SpriteJsonLoader {
         layout
     }
 
+    fn load_animation_tags(
+        &self,
+        sprites: &SpriteSheet,
+        load_context: &mut LoadContext,
+    ) -> HashMap<String, Handle<SpriteAnimationAsset>> {
+        let mut out = HashMap::with_capacity(sprites.meta.frame_tags.len());
+        for tag in sprites.meta.frame_tags.iter() {
+            let anim_asset = SpriteAnimationAsset::from_tag(tag.clone());
+            out.insert( anim_asset.tag.clone(), load_context.add_labeled_asset(
+                format!("{}{}", KEY_TAG_PREFIX, anim_asset.tag.clone()),
+                anim_asset.clone(),
+            ));
+        }
+        out
+    }
+
     fn load_indices(
         &self,
         sprites: &SpriteSheet,
         load_context: &mut LoadContext<'_>,
-    ) -> Vec<Handle<SpriteFrameAsset>> {
-        let mut vec = Vec::with_capacity(sprites.frames.len());
+    ) -> HashMap<String, Handle<SpriteFrameAsset>> {
+        let mut out = HashMap::with_capacity(sprites.frames.len());
         for (i, frame) in sprites.frames.iter().enumerate() {
             if (frame.name == None) {
                 continue;
             }
+            let name = frame.name.clone().unwrap();
             let asset = load_context.add_labeled_asset(
-                frame.name.clone().unwrap(),
+                format!("{}{}",KEY_FRAME_PREFIX, name.clone()),
                 SpriteFrameAsset {
                     frame: frame.rect(),
                     index: i,
                 },
             );
-            vec.push(asset);
+            out.insert(name, asset);
         }
-        vec
+        out
     }
 }
 
@@ -106,7 +113,7 @@ impl AssetLoader for SpriteJsonLoader {
         let tag_handles = self.load_animation_tags(&sprite_schema, load_context);
         //add tagged animation keyframes
         let frame_handles = self.load_indices(&sprite_schema, load_context);
-        let sheet_handle = load_context.add_labeled_asset(KEY_SPRITE_SHEET, sprite_schema.clone());
+        let sheet_handle = load_context.add_labeled_asset(KEY_SPRITE_SHEET, sprite_schema);
         Ok(SpriteAsset {
             schema: sheet_handle,
             tags: tag_handles,
