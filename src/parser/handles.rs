@@ -1,4 +1,4 @@
-use crate::spriteifier::schema::{SpriteSheet, SpriteSheetIndex};
+use crate::parser::schema::{SpriteSheet, SpriteSheetIndex};
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, Assets, LoadContext};
 use bevy::image::TextureAtlasLayout;

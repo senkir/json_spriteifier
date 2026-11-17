@@ -1,5 +1,5 @@
-use crate::spriteifier::animator::SpriteAnimationAsset;
-use crate::spriteifier::schema::{FrameTag, SpriteSheet};
+use crate::animator::SpriteAnimationAsset;
+use crate::parser::schema::{FrameTag, SpriteSheet};
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, LoadContext};
 use bevy::image::TextureAtlasLayout;

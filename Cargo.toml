@@ -25,6 +25,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.154"
 
 bevy_common_assets = { version = "0.18.0", features = ["json"] }
+serde_path_to_error = "0.1.20"
+pretty_assertions = "1.4.1"
 
 
 # Enable a small amount of optimization in the dev profile for your code
