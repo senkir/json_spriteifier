@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use bevy::math::UVec2;
-use bevy::prelude::{Asset, Component, TypePath, URect};
-use serde::de::{Error, MapAccess, SeqAccess, };
+use bevy::prelude::{Asset, TypePath, URect};
+use serde::de::{Error, MapAccess, SeqAccess};
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 use std::fmt::Formatter;
 // region schema
 
@@ -13,7 +13,7 @@ use std::fmt::Formatter;
 pub struct SpriteSheet {
     /// raw frame data
     #[serde(deserialize_with = "deserialize_sprite_sheet")]
-    pub frames: Vec<SpriteSheetIndex>,
+    pub frames: Vec<SpriteAtFrame>,
 
     ///point name keys to frame indices
     #[serde(skip)]
@@ -63,7 +63,7 @@ impl SpriteSheet {
     }
 
     /// attempt to get the SpriteSheet frame for the given name key
-    pub fn frame_for_name(&self, key: String) -> Option<SpriteSheetIndex> {
+    pub fn frame_for_name(&self, key: String) -> Option<SpriteAtFrame> {
         if let Some(index) = self.indices.get(&key) {
             self.frames.get(*index).cloned()
         } else {
@@ -75,9 +75,9 @@ impl SpriteSheet {
 /// individual image definitions within a sheet
 #[derive(Deserialize, Debug, Eq, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct SpriteSheetIndex {
+pub struct SpriteAtFrame {
+    //duration in Ms this sprite should show in animation context.
     pub duration: usize,
-    pub filename: Option<String>,
     pub frame: Frame,
     pub rotated: bool,
     pub source_size: Size,
@@ -90,8 +90,8 @@ pub struct SpriteSheetIndex {
     pub name: Option<String>,
 }
 
-impl SpriteSheetIndex {
-
+impl SpriteAtFrame {
+    /// rect for sprite frame
     pub fn rect(&self) -> URect {
         self.frame.rect()
     }
@@ -175,7 +175,6 @@ pub struct Size {
 }
 
 impl Size {
-    const ZERO: Self = Self { h: 0, w: 0 };
     pub fn as_vec(&self) -> UVec2 {
         UVec2::new(self.w as u32, self.h as u32)
     }
@@ -208,7 +207,7 @@ where
     }
 }
 
-fn deserialize_sprite_sheet<'de, D>(deserializer: D) -> Result<Vec<SpriteSheetIndex>, D::Error>
+fn deserialize_sprite_sheet<'de, D>(deserializer: D) -> Result<Vec<SpriteAtFrame>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -220,7 +219,7 @@ where
 struct SpriteSheetVisitor;
 
 impl<'de> serde::de::Visitor<'de> for SpriteSheetVisitor {
-    type Value = Vec<SpriteSheetIndex>;
+    type Value = Vec<SpriteAtFrame>;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("an array of spritesheets")
@@ -228,25 +227,24 @@ impl<'de> serde::de::Visitor<'de> for SpriteSheetVisitor {
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
-        A: SeqAccess<'de>
+        A: SeqAccess<'de>,
     {
-        let mut frames: Vec<SpriteSheetIndex> = Vec::new();
+        let mut frames: Vec<SpriteAtFrame> = Vec::new();
 
-        while let Some((frame)) =  seq.next_element::<SpriteSheetIndex>()? {
+        while let Some((frame)) = seq.next_element::<SpriteAtFrame>()? {
             frames.push(frame);
         }
         Ok(frames)
     }
 
-
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
-        let mut frames: Vec<SpriteSheetIndex> = Vec::with_capacity(map.size_hint().unwrap_or(0));
+        let mut frames: Vec<SpriteAtFrame> = Vec::with_capacity(map.size_hint().unwrap_or(0));
 
         while let Some(name) = map.next_key()? {
-            let mut frame: SpriteSheetIndex = map.next_value()?;
+            let mut frame: SpriteAtFrame = map.next_value()?;
             frame.name = Some(name);
             frames.push(frame);
         }
@@ -285,9 +283,8 @@ mod test {
     fn test_full_frame_1() {
         let json = test_read_file!("frame_1.json");
         let mut vec = Vec::new();
-        vec.push(SpriteSheetIndex {
+        vec.push(SpriteAtFrame {
             duration: 100,
-            filename: None,
             name: Some("Crow 0.aseprite".to_string()),
             frame: Frame {
                 h: 64,
@@ -327,9 +324,8 @@ mod test {
     fn test_full_frame_alt_pixuare() {
         let json = test_read_file!("frame_pixquare.json");
         let mut vec = Vec::new();
-        vec.push(SpriteSheetIndex {
+        vec.push(SpriteAtFrame {
             duration: 100,
-            filename: Some("Crow fly 0".to_string()),
             name: Some("Crow 0.aseprite".to_string()),
             frame: Frame {
                 h: 64,
@@ -373,10 +369,9 @@ mod test {
         assert_data_of_type(json, obj);
     }
 
-    fn build_sprite_index(x: i32, name: String) -> SpriteSheetIndex {
-        SpriteSheetIndex {
+    fn build_sprite_index(x: i32, name: String) -> SpriteAtFrame {
+        SpriteAtFrame {
             duration: 100,
-            filename: None,
             name: Some(name.to_string()),
             frame: Frame {
                 h: 64,
@@ -396,17 +391,11 @@ mod test {
         }
     }
 
-    fn build_sprite_xy(x: i32, y: i32, file: String) -> SpriteSheetIndex {
-        SpriteSheetIndex {
+    fn build_sprite_xy(x: i32, y: i32, file: String) -> SpriteAtFrame {
+        SpriteAtFrame {
             duration: 100,
-            filename: Some(file.to_string()),
             name: None,
-            frame: Frame {
-                h: 64,
-                w: 64,
-                x,
-                y,
-            },
+            frame: Frame { h: 64, w: 64, x, y },
             rotated: false,
             source_size: Size { h: 64, w: 64 },
             sprited_source_size: Frame {
@@ -423,8 +412,14 @@ mod test {
     fn test_full_crow() {
         let json = test_read_file!("crow.json");
         let mut vec = Vec::new();
-        vec.push(build_sprite_index(0, format!("Crow {}.aseprite", 0).to_string()));
-        vec.push(build_sprite_index(64, format!("Crow {}.aseprite", 1).to_string()));
+        vec.push(build_sprite_index(
+            0,
+            format!("Crow {}.aseprite", 0).to_string(),
+        ));
+        vec.push(build_sprite_index(
+            64,
+            format!("Crow {}.aseprite", 1).to_string(),
+        ));
 
         let mut tags = Vec::new();
         tags.push(FrameTag {
@@ -451,12 +446,11 @@ mod test {
         assert_data_of_type(json, obj);
     }
 
-
     #[test]
     fn test_crow_array() {
         let json = test_read_file!("crow_array.json");
         let mut vec = Vec::new();
-        vec.push(build_sprite_xy(30,30, "Crow 0".to_string()));
+        vec.push(build_sprite_xy(30, 30, "Crow 0".to_string()));
 
         let mut tags = Vec::new();
         tags.push(FrameTag {
@@ -507,9 +501,8 @@ mod test {
     #[test]
     fn test_sprite_sheet_index() {
         let json = test_read_file!("sprite_sheet_index.json");
-        let reference = SpriteSheetIndex {
+        let reference = SpriteAtFrame {
             duration: 100,
-            filename: None,
             rotated: false,
             frame: Frame {
                 w: 64,

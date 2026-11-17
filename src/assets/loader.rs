@@ -1,5 +1,6 @@
 use crate::animator::SpriteAnimationAsset;
-use crate::parser::schema::{FrameTag, SpriteSheet};
+use crate::frame::SpriteFrameAsset;
+use crate::parser::schema::SpriteSheet;
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, LoadContext};
 use bevy::image::TextureAtlasLayout;
@@ -9,24 +10,19 @@ use serde_json::from_slice;
 /// supported extensions for the loader
 const EXTENSIONS: [&str; 2] = ["json", "sprites.json"];
 
+const KEY_SPRITE_SHEET: &str = "sheet";
+const KEY_TEXTURE_LAYOUT: &str = "layout";
+
+const KEY_TAG_PREFIX: &str = "t_";
+const KEY_FRAME_PREFIX: &str = "f_";
+
 /// Asset holding loaded data
 #[derive(Asset, TypePath)]
 pub struct SpriteAsset {
-    pub schema: SpriteSheet,
-    pub tags: Vec<SpriteAnimationAsset>,
+    pub schema: Handle<SpriteSheet>,
+    pub tags: Vec<Handle<SpriteAnimationAsset>>,
+    pub frames: Vec<Handle<SpriteFrameAsset>>,
     pub layout: Handle<TextureAtlasLayout>,
-}
-
-impl SpriteAnimationAsset {
-    pub fn from_tag(tag: FrameTag) -> SpriteAnimationAsset {
-        SpriteAnimationAsset::new(
-            //TODO make a size
-            tag.from,
-            tag.to,
-            tag.name,
-            tag.looping.unwrap_or(0),
-        )
-    }
 }
 
 // region loader
@@ -41,10 +37,18 @@ impl SpriteJsonLoader {
         SpriteJsonLoader {}
     }
 
-    fn load_animation_tags(&self, sprites: &SpriteSheet) -> Vec<SpriteAnimationAsset> {
-        let mut vec = Vec::new();
+    fn load_animation_tags(
+        &self,
+        sprites: &SpriteSheet,
+        load_context: &mut LoadContext,
+    ) -> Vec<Handle<SpriteAnimationAsset>> {
+        let mut vec = Vec::with_capacity(sprites.meta.frame_tags.len());
         for tag in sprites.meta.frame_tags.iter() {
-            vec.push(SpriteAnimationAsset::from_tag(tag.clone()));
+            let anim_asset = SpriteAnimationAsset::from_tag(tag.clone());
+            vec.push(load_context.add_labeled_asset(
+                format!("{}{}", KEY_TAG_PREFIX, anim_asset.tag.clone()),
+                anim_asset.clone(),
+            ));
         }
         vec
     }
@@ -55,6 +59,28 @@ impl SpriteJsonLoader {
             layout.add_texture(frame.rect());
         }
         layout
+    }
+
+    fn load_indices(
+        &self,
+        sprites: &SpriteSheet,
+        load_context: &mut LoadContext<'_>,
+    ) -> Vec<Handle<SpriteFrameAsset>> {
+        let mut vec = Vec::with_capacity(sprites.frames.len());
+        for (i, frame) in sprites.frames.iter().enumerate() {
+            if (frame.name == None) {
+                continue;
+            }
+            let asset = load_context.add_labeled_asset(
+                frame.name.clone().unwrap(),
+                SpriteFrameAsset {
+                    frame: frame.rect(),
+                    index: i,
+                },
+            );
+            vec.push(asset);
+        }
+        vec
     }
 }
 
@@ -75,14 +101,18 @@ impl AssetLoader for SpriteJsonLoader {
         let sprite_schema = from_slice::<SpriteSheet>(&bytes)?;
 
         let non_grid_layout = self.load_asset_layout(&sprite_schema);
-        let handle = load_context.add_labeled_asset("layout", non_grid_layout);
-        let tags = self.load_animation_tags(&sprite_schema);
-        let asset = SpriteAsset {
-            schema: sprite_schema,
-            tags,
+        let handle = load_context.add_labeled_asset(KEY_TEXTURE_LAYOUT, non_grid_layout);
+
+        let tag_handles = self.load_animation_tags(&sprite_schema, load_context);
+        //add tagged animation keyframes
+        let frame_handles = self.load_indices(&sprite_schema, load_context);
+        let sheet_handle = load_context.add_labeled_asset(KEY_SPRITE_SHEET, sprite_schema.clone());
+        Ok(SpriteAsset {
+            schema: sheet_handle,
+            tags: tag_handles,
+            frames: frame_handles,
             layout: handle,
-        };
-        Ok(asset)
+        })
     }
 
     fn extensions(&self) -> &[&str] {
