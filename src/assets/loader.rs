@@ -5,7 +5,7 @@ use crate::parser::schema::SpriteSheet;
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, LoadContext};
 use bevy::image::TextureAtlasLayout;
-use bevy::prelude::{Handle, TypePath};
+use bevy::prelude::{Handle, Sprite, TextureAtlas, TypePath};
 use serde_json::from_slice;
 
 /// supported extensions for the loader
@@ -26,9 +26,18 @@ pub struct SpriteSheetAsset {
     pub layout: Handle<TextureAtlasLayout>,
 }
 
+
 impl SpriteSheetAsset {
-    pub fn tags(&self, tag: &str) -> Option<&Handle<SpriteAnimationAsset>> { self.tags.get(tag) }
-    pub fn frame(&self, name: &str) -> Option<&Handle<SpriteFrameAsset>> { self.frames.get(name) }
+    /// find matching tag
+    pub fn find_tag(&self, tag: &str) -> Option<&Handle<SpriteAnimationAsset>> { self.tags.get(tag) }
+
+    /// find matching frame
+    pub fn find_frame(&self, name: &str) -> Option<&Handle<SpriteFrameAsset>> { self.frames.get(name) }
+
+    /// build a texture atlas for this sprite sheet
+    pub fn atlas(&self, atlas_index: usize) -> TextureAtlas {
+        TextureAtlas::from(self.layout.clone()).with_index(atlas_index)
+    }
 }
 
 // region loader

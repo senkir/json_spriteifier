@@ -2,6 +2,7 @@ use crate::parser::schema::SpriteSheet;
 use bevy::asset::Assets;
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::{AssetServer, Commands, Handle, Res, Resource};
+use crate::SpriteSheetAsset;
 
 /// load an asset by image and json path into a `TextureAtlasLayout`
 /// asset loading is asynchronous so loading will trigger it to be handled by processor later
@@ -37,16 +38,12 @@ pub fn on_asset_ready(
 }
 
 pub fn handle_json_sprite_sheet(
-    sprite_schema: &SpriteSheet,
+    sprite_schema: &SpriteSheetAsset,
     texture_atlas_layouts: &mut Assets<TextureAtlasLayout>,
 ) {
     //TODO: maybe this async
 
-    let columns = sprite_schema.col_count();
-    let rows = sprite_schema.row_count();
-
-    let layout =
-        TextureAtlasLayout::from_grid(sprite_schema.sprite_size(), columns, rows, None, None);
+    let layout = sprite_schema.layout;
 
     texture_atlas_layouts.add(layout);
 }
