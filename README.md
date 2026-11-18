@@ -5,6 +5,7 @@ a bevy utility to simplify setting up sprite assets.
 
 Reads from exported JSON format in apps like `Asprite` and `Pixquare`.
 
+[![Rust](https://github.com/senkir/json_spriteifier/actions/workflows/rust.yml/badge.svg)](https://github.com/senkir/json_spriteifier/actions/workflows/rust.yml)
 [![codecov](https://codecov.io/github/senkir/json_spriteifier/graph/badge.svg?token=I3NMG75RL0)](https://codecov.io/github/senkir/json_spriteifier)
 
 
