@@ -5,7 +5,7 @@ use crate::parser::schema::SpriteSheet;
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, LoadContext};
 use bevy::image::TextureAtlasLayout;
-use bevy::prelude::{Handle, Sprite, TextureAtlas, TypePath};
+use bevy::prelude::{Handle, TextureAtlas, TypePath};
 use serde_json::from_slice;
 
 /// supported extensions for the loader
@@ -82,7 +82,7 @@ impl SpriteJsonLoader {
     ) -> HashMap<String, Handle<SpriteFrameAsset>> {
         let mut out = HashMap::with_capacity(sprites.frames.len());
         for (i, frame) in sprites.frames.iter().enumerate() {
-            if (frame.name == None) {
+            if frame.name.is_none() {
                 continue;
             }
             let name = frame.name.clone().unwrap();

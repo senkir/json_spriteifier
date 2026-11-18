@@ -1,5 +1,5 @@
 use bevy::math::UVec2;
-use bevy::prelude::{Asset, TypePath, URect};
+use bevy::prelude::{Asset, Srgba, TypePath, URect};
 use serde::de::{Error, MapAccess, SeqAccess};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -9,7 +9,7 @@ use std::fmt::Formatter;
 // Aseprite and Pixquare
 // both can export using a `json` schema that is pretty similar
 //
-#[derive(Asset, TypePath, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Asset, TypePath, Deserialize, Debug, PartialEq, Clone)]
 pub struct SpriteSheet {
     /// raw frame data
     #[serde(deserialize_with = "deserialize_sprite_sheet")]
@@ -62,7 +62,7 @@ pub struct SpriteAtFrame {
 /// metadata
 ///
 /// general information to organize frame data
-#[derive(Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Meta {
     /// the app that generated the json sprite sheet
@@ -83,17 +83,15 @@ pub struct Meta {
     pub size: UVec2,
 }
 
-#[derive(Deserialize, Debug, Eq, PartialEq, Clone)]
-struct ColorTag(String);
-
 /// tagged frame information
-#[derive(Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameTag {
     /// tag name
     pub name: String,
-    /// the color in hex
-    pub color: ColorTag,
+    /// the color filter for the sprite
+    #[serde(deserialize_with = "de_color")]
+    pub color: Srgba,
     /// render direction such as "forward"
     pub direction: String,
     /// start frame
@@ -104,8 +102,8 @@ pub struct FrameTag {
     /// looping flag
     /// Pixquare writes 0 = loop forever
     /// Asprite omits it entirely
-    #[serde(default, rename = "loop", deserialize_with = "deserialize_loop")]
-    pub looping: Option<usize>,
+    #[serde(default, rename = "loop")]
+    pub looping: usize,
 }
 
 /// raw frame dimensions and start params
@@ -143,12 +141,12 @@ impl From<Size> for UVec2 {
 
 // endregion
 
-fn deserialize_loop<'de, D>(deserializer: D) -> Result<Option<usize>, D::Error>
+fn de_color<'de, D>(deserializer: D) -> Result<Srgba, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let option: Option<usize> = Option::deserialize(deserializer)?;
-    Ok(option.map(|looped| looped))
+    let hex_s = String::deserialize(deserializer)?;
+    Srgba::hex(&hex_s).map_err(D::Error::custom)
 }
 
 #[derive(Deserialize)]
@@ -214,7 +212,7 @@ impl<'de> serde::de::Visitor<'de> for SpriteSheetVisitor {
     {
         let mut frames: Vec<SpriteAtFrame> = Vec::new();
 
-        while let Some((frame)) = seq.next_element::<SpriteAtFrame>()? {
+        while let Some(frame) = seq.next_element::<SpriteAtFrame>()? {
             frames.push(frame);
         }
         Ok(frames)
@@ -333,8 +331,8 @@ mod test {
             from: 0,
             to: 6,
             name: "Takeoff".to_string(),
-            color: ColorTag("#FFFFFFFF".to_string()),
-            looping: Some(0),
+            color: Srgba::hex("#FFFFFFFF").unwrap(),
+            looping: 0,
         });
         let obj = SpriteSheet {
             meta: Meta {
@@ -407,11 +405,11 @@ mod test {
         let mut tags = Vec::new();
         tags.push(FrameTag {
             name: "Blink".to_string(),
-            color: ColorTag("#ffffffff".to_string()),
+            color: Srgba::hex("#FFFFFFFF").unwrap(),
             direction: "forward".to_string(),
             from: 2,
             to: 7,
-            looping: None,
+            looping: 0,
         });
         let obj = SpriteSheet {
             meta: Meta {
@@ -438,11 +436,11 @@ mod test {
         let mut tags = Vec::new();
         tags.push(FrameTag {
             name: "Blink".to_string(),
-            color: ColorTag("#FFFFFFFF".to_string()),
+            color: Srgba::hex("#FFFFFFFF").unwrap(),
             direction: "forward".to_string(),
             from: 2,
             to: 7,
-            looping: Some(0),
+            looping: 0,
         });
         let obj = SpriteSheet {
             meta: Meta {
@@ -515,14 +513,14 @@ mod test {
             from: 2,
             to: 7,
             direction: "forward".to_string(),
-            color: ColorTag("ffffffff".to_string()), //TODO: should this use bevy white
-            looping: None,
+            color: Srgba::hex("#FFFFFFFF").unwrap(),
+            looping: 0,
         };
 
         assert_data_of_type(json, reference);
     }
     #[test]
-    fn test_frame_tag_looping_0() {
+    fn test_frame_tag_looping() {
         let json = test_read_file!("frame_tag.json");
 
         let reference = FrameTag {
@@ -530,8 +528,8 @@ mod test {
             from: 2,
             to: 7,
             direction: "forward".to_string(),
-            color: ColorTag("#ffffffff".to_string()), //TODO: should this use bevy white
-            looping: Some(0),
+            color: Srgba::hex("#FFFFFFFF").unwrap(),
+            looping: 0,
         };
 
         assert_data_of_type(json, reference);

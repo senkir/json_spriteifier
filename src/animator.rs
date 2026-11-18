@@ -3,7 +3,6 @@ use bevy::asset::Asset;
 use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Sprite, Time, Timer, TypePath};
 
 /// an Animation spec for a sprite based on a loaded sheet
-
 /// derived sprite animation
 #[derive(Component, Asset, Clone, TypePath)]
 pub struct SpriteAnimationAsset {
@@ -20,7 +19,7 @@ impl SpriteAnimationAsset {
             tag.from,
             tag.to,
             tag.name,
-            tag.looping.unwrap_or(0),
+            tag.looping,
         )
     }
 }
@@ -37,7 +36,7 @@ pub struct SpriteLoopCount(pub Option<usize>);
 
 impl SpriteAnimationAsset {
     pub fn new(from: usize, to: usize, tag: String, looping: usize) -> SpriteAnimationAsset {
-        let a_loop = if (looping == 0) {
+        let a_loop = if looping == 0 {
             SpriteAnimationMode::Repeating
         } else {
             SpriteAnimationMode::Counted(looping)
@@ -58,11 +57,9 @@ impl SpriteAnimationAsset {
 
     /// generate the next frame index
     pub fn next(&self, index: usize) -> usize {
-        if self.has_finished(index) {
+        if self.has_finished(index) || index < self.from {
             self.from
-        } else if (index < self.from) {
-            self.from
-        } else if (index >= self.to) {
+        } else if index >= self.to {
             self.to
         } else {
             index + 1
@@ -72,18 +69,12 @@ impl SpriteAnimationAsset {
     /// determine if the animation has finished playing
     /// NOTE: if AnimationMode::Repeating this will never be true
     pub fn animation_finished(&self, index: usize, loops: &Option<usize>) -> bool {
-        if (index < self.to || self.looping == SpriteAnimationMode::Repeating) {
+        if index < self.to || self.looping == SpriteAnimationMode::Repeating {
             return false;
         }
 
         match self.looping {
-            SpriteAnimationMode::Counted(number) => {
-                if (*loops >= Some(number)) {
-                    true
-                } else {
-                    false
-                }
-            }
+            SpriteAnimationMode::Counted(number) => *loops >= Some(number),
             _ => {
                 //fallback
                 false
@@ -113,7 +104,7 @@ pub fn animate_sprite(
         if timer.just_finished()
             && let Some(atlas) = &mut sprite.texture_atlas
         {
-            if (indices.animation_finished(atlas.index, &count.0)) {
+            if indices.animation_finished(atlas.index, &count.0) {
                 return;
             }
             atlas.index = indices.next(atlas.index);
