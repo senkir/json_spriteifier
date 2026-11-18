@@ -1981,7 +1981,7 @@ dependencies = [
 
 [[package]]
 name = "json-spriteifier"
-version = "0.2.1"
+version = "0.4.0"
 dependencies = [
  "bevy",
  "log",
