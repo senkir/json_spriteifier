@@ -1,16 +1,21 @@
 use crate::parser::schema::FrameTag;
 use bevy::asset::Asset;
-use bevy::prelude::{Component, Deref, DerefMut, Query, Res, Sprite, Time, Timer, TypePath};
+use bevy::prelude::{
+    Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Time, Timer, TypePath,
+};
 
 /// an Animation spec for a sprite based on a loaded sheet
 /// derived sprite animation
-#[derive(Component, Asset, Clone, TypePath)]
+#[derive(Asset, Clone, TypePath)]
 pub struct SpriteAnimationAsset {
     from: usize,
     to: usize,
     pub tag: String,
     looping: SpriteAnimationMode,
 }
+
+#[derive(Component, Clone)]
+pub struct SpriteAnimation(pub Handle<SpriteAnimationAsset>);
 
 impl SpriteAnimationAsset {
     pub fn from_tag(tag: FrameTag) -> SpriteAnimationAsset {
@@ -91,8 +96,9 @@ pub struct SpriteTimer {
 /// run the animation for anything matching the given properties
 pub fn animate_sprite(
     time: Res<Time>,
+    assets: Assets<SpriteAnimationAsset>,
     mut query: Query<(
-        &SpriteAnimationAsset,
+        &SpriteAnimation,
         &SpriteLoopCount,
         &mut SpriteTimer,
         &mut Sprite,
@@ -101,13 +107,18 @@ pub fn animate_sprite(
     for (indices, count, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
 
+        let Some(anim) = assets.get(&indices.0) else {
+            return;
+        };
+
+
         if timer.just_finished()
             && let Some(atlas) = &mut sprite.texture_atlas
         {
-            if indices.animation_finished(atlas.index, &count.0) {
+            if anim.animation_finished(atlas.index, &count.0) {
                 return;
             }
-            atlas.index = indices.next(atlas.index);
+            atlas.index = anim.next(atlas.index);
         }
     }
 }
