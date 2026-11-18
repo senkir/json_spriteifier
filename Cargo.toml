@@ -8,7 +8,7 @@ readme = "README.md"
 keywords = ["Bevy", "Json", "Sprite"]
 repository = "https://github.com/senkir/json_spriteifier"
 description = "Read exported Sprite Json from apps like Asprite and load directly into Bevy TextureAtlasLayout"
-exclude = [".idea/**", "docs/**", ".gitignore", ".github", "test/**"]
+exclude = [".idea/", "docs/", ".gitignore", ".github", "test/assets/"]
 
 [dependencies]
 

@@ -5,6 +5,8 @@ a bevy utility to simplify setting up sprite assets.
 
 Reads from exported JSON format in apps like `Asprite` and `Pixquare`.
 
+[![codecov](https://codecov.io/github/senkir/json_spriteifier/graph/badge.svg?token=I3NMG75RL0)](https://codecov.io/github/senkir/json_spriteifier)
+
 
 # Usage
 
@@ -45,3 +47,18 @@ or
 ```
 asset_server.load("my_sprite.sprites.json")
 ```
+
+### Running CI locally
+
+```
+cargo llvm-cov --cobertura --output-path coverage.xml
+```
+
+### Open Tasks
+
+- [x] Complete Schema parsing for both JSONObject and JSONArray
+- [ ] Finish setting up examples for the common use cases.
+- [ ] The return in animate_sprite stops the system for every sprite after the first finished one.
+- [ ] Loop counting is never incremented, so counted animations can't finish.
+- [ ] The todo!() in the old loader path, if it's still reachable.
+- [ ] The animation_finished comparison against the frame index.
