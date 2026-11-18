@@ -1,0 +1,22 @@
+name: Rust
+
+on:
+  push:
+    tags: [ "v*" ]
+
+permissions: write-all
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - run: cargo package --allow-dirty=false
+    - run: gh release create "${GITHUB_REF_NAME}" target/package/*.crate --generate-notes
+    env:
+      GH_TOKEN: #{{github.token}}
