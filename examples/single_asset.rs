@@ -1,16 +1,13 @@
 use bevy::DefaultPlugins;
-use bevy::prelude::{App, AssetServer, Assets, Camera2d, Commands, Res, Resource, Startup, Update};
-use json_spriteifier::{JsonSpriteifierPlugin, SpriteSheetAsset};
+use bevy::prelude::{App, AssetServer, Assets, Camera2d, Commands, Handle, Image, Local, Res, Resource, Startup, Update};
+use log::info;
+use json_spriteifier::{JsonSpriteifierPlugin, SpriteSheet, SpriteSheetAsset};
 
 #[derive(Resource)]
 pub struct CrowSprite {
     pub texture: Handle<SpriteSheetAsset>,
     pub image: Handle<Image>,
 }
-
-
-#[derive(Resource)]
-struct CrowSheet(Handle<SpriteSheetHandle>);
 
 fn main() {
     App::new()
@@ -21,18 +18,20 @@ fn main() {
         .run();
 }
 
-
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(Camera2d);
-    commands.insert_resource(CrowSheet(assets.load::<SpriteSheetAsset>("crow.json")));
+
+    let texture = assets.load::<SpriteSheetAsset>("crow.json");
+    let image = assets.load::<Image>("crow.png");
+    commands.insert_resource(CrowSprite { texture, image });
 }
 
 fn report_loaded(
-    sheet: Res<CrowSheet>,
-    sheets: Res<Assets<SpriteSheetHandle>>,
+    sheet: Res<CrowSprite>,
+    sheets: Res<Assets<SpriteSheetAsset>>,
     mut reported: Local<bool>,
 ) {
-    if !*reported && sheets.get(&sheet.0).is_some() {
+    if !*reported && sheets.get(&sheet.texture).is_some() {
         info!("crow.json loaded");
         *reported = true;
     }
