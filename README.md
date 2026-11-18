@@ -8,6 +8,20 @@ Reads from exported JSON format in apps like `Asprite` and `Pixquare`.
 [![Rust](https://github.com/senkir/json_spriteifier/actions/workflows/rust.yml/badge.svg)](https://github.com/senkir/json_spriteifier/actions/workflows/rust.yml)
 [![codecov](https://codecov.io/github/senkir/json_spriteifier/graph/badge.svg?token=I3NMG75RL0)](https://codecov.io/github/senkir/json_spriteifier)
 
+# Reasoning
+
+This library speeds up the workflow of mapping sprite sheets from apps like `Aseprite` and `Pixquare`.
+These apps generate helpful sprite sheets for modern games but require manual setup for each asset.  
+They already support exporting both the image and json but handling these files is still done by hand per game project.
+
+In a project where we have to do this for hundreds of assets we can save a lot of time by parsing `json` directly out of these apps.
+
+This library does the work for you by reading the raw `json` and passing back a handle to asset data that is easily readable in game output.
+It also greatly simplifies animation loops by passing back a name keyed spec which can be handled by rendering engines.
+
+- `TextureAtlasLayout` is generated automatically from the sprite spec.
+- `SpriteFrameAsset` is generated from individual frame data. keyed by name where it is available.
+- `SpriteAnimationAsset` is generated from tagged animation block data.
 
 # Usage
 
@@ -20,17 +34,24 @@ app.add_plugins(JsonSpriteifierPlugin);
 
 ### Loading Sprite
 
+usually it is desired to use the turbofish syntax to avoid clashes with other json parsers.
+
 ```
-asset_server.load("my_sprite.json")
+let handle = asset_server.load::<SpriteSheetAsset>("my_sprite.json")
+```
+
+### Using Animation Data
+
+```
+let handle = asset_server.load::<SpriteSheetAsset>("my_sprite.json")
 ```
 
 ### Supported Extensions
 
-supported extensions are
+supported extension is
 
 ```aiignore
 .json
-.sprites.json
 ```
 
 ## Troubleshooting
@@ -38,9 +59,9 @@ supported extensions are
 If other Json parsers are used (such as `JsonAssetPlugin`) either explicitly declare the type or change the extension to avoid conflicts.
 
 ```
-let handle = asset_server.load<SpriteSchema>("my_sprite.json");
+let handle = asset_server.load::<SpriteSheetAsset>("my_sprite.json");
 //or
-let handle: Handle<SpriteSchema> =  asset_server.load<SpriteSchema>("my_sprite.json");
+let handle: Handle<SpriteSheetAsset> =  asset_server.load::<SpriteSheetAsset>("my_sprite.json");
 ```
 
 or

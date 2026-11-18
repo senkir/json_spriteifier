@@ -1,7 +1,10 @@
 use bevy::DefaultPlugins;
-use bevy::prelude::{App, AssetServer, Assets, Camera2d, Commands, Handle, Image, Local, Res, Resource, Startup, Update};
+use bevy::prelude::{
+    App, AssetServer, Assets, Camera2d, Commands, Handle, Image, Local, Res, Resource, Startup,
+    Update,
+};
+use json_spriteifier::{JsonSpriteifierPlugin, SpriteSheetAsset};
 use log::info;
-use json_spriteifier::{JsonSpriteifierPlugin, SpriteSheet, SpriteSheetAsset};
 
 #[derive(Resource)]
 pub struct CrowSprite {

@@ -1,22 +1,38 @@
-name: Rust
+name: Publish Github Tag
 
 on:
   push:
     tags: [ "v*" ]
 
-permissions: write-all
+permissions:
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
 
+
 jobs:
-  build:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: tests
+        run: cargo test --verbose
+
+  github-publish:
+    needs: [test]
+    environment: gh-publish
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - run: cargo package --allow-dirty=false
-    - run: gh release create "${GITHUB_REF_NAME}" target/package/*.crate --generate-notes
+    - uses: Swatinem/rust-cache@v2
+    - name: package
+      run: cargo package
+    - name: gh
+      run: gh release create "${{GITHUB_REF_NAME}}" target/package/*.crate --generate-notes
     env:
-      GH_TOKEN: #{{github.token}}
+      GH_TOKEN: ${{github.token}}
