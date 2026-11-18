@@ -29,15 +29,6 @@ impl SpriteSheet {
         self.meta.size
     }
 
-    pub fn sprite_size(&self) -> UVec2 {
-        if self.frames.is_empty() {
-            UVec2::ZERO
-        } else {
-            let frame = self.frames.first().unwrap();
-            frame.source_size
-        }
-    }
-
     /// attempt to get the SpriteSheet frame for the given name key
     pub fn frame_for_name(&self, key: String) -> Option<SpriteAtFrame> {
         if let Some(index) = self.indices.get(&key) {
