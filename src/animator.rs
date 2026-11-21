@@ -2,12 +2,9 @@ use crate::SpriteSheetAsset;
 use crate::parser::schema::TaggedSprites;
 use bevy::asset::Asset;
 use bevy::ecs::template::TemplateContext;
-use bevy::prelude::{
-    Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Template, Time, Timer,
-    TimerMode, TypePath, error,
-};
-use log::info;
+use bevy::prelude::{Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Template, Time, Timer, TimerMode, TypePath};
 use std::time::Duration;
+use log::error;
 
 /// an Animation spec for a sprite based on a loaded sheet
 /// derived sprite animation
@@ -44,19 +41,12 @@ pub struct SpriteAnimation {
     loop_count: usize,
 }
 
+#[derive(Default)]
 pub struct SpriteAnimationTemplate {
     sheet: Handle<SpriteSheetAsset>,
     name: String,
 }
 
-impl Default for SpriteAnimationTemplate {
-    fn default() -> Self {
-        Self {
-            sheet: Handle::default(),
-            name: String::default(),
-        }
-    }
-}
 
 impl SpriteAnimationTemplate {
     pub fn new(sheet: Handle<SpriteSheetAsset>, name: String) -> Self {
@@ -84,7 +74,7 @@ impl Template for SpriteAnimationTemplate {
         let frames_for_sheet = sheet.get_sprite_frames();
 
         let mut durations = Vec::with_capacity(frames_for_sheet.len());
-        for (frame) in frames_for_sheet {
+        for frame in frames_for_sheet {
             durations.push(frame.duration);
         }
 
@@ -122,10 +112,7 @@ impl SpriteAnimationAsset {
     /// determine if the animation has finished playing
     /// NOTE: if AnimationMode::Repeating this will never be true
     pub fn animation_finished(&self, index: usize) -> bool {
-        if index < self.to || self.looping == 0 {
-            return false;
-        }
-        true
+        !(index < self.to || self.looping == 0)
     }
 
     pub fn should_loop(&self, loop_count: usize) -> bool {
@@ -173,21 +160,18 @@ pub fn animate_sprite(
         if timer.just_finished()
             && let Some(atlas) = &mut sprite.texture_atlas
         {
-            info!("timer finished");
             if a_asset.animation_finished(atlas.index) && !a_asset.should_loop(anim.loop_count) {
                 //finished animation and done looping altogether
-                info!("finished anim");
                 timer.pause();
                 continue;
             }
 
-            if a_asset.animation_finished(atlas.index) && a_asset.should_loop(anim.loop_count) {
-                if a_asset.looping != 0 {
+            if a_asset.animation_finished(atlas.index) && a_asset.should_loop(anim.loop_count)
+                && a_asset.looping != 0 {
                     anim.loop_count += 1;
                 }
 
                 //still go to next frame
-            }
             //next frame advancement
 
             atlas.index = a_asset.next(atlas.index);
@@ -195,7 +179,7 @@ pub fn animate_sprite(
                 "index not found in durations size{}",
                 anim.durations.len()
             ));
-            if (dur.is_err()) {
+            if dur.is_err() {
                 error!(
                     "anim durations exhausted requested index {} from durations size {}",
                     atlas.index,

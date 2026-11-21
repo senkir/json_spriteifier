@@ -72,6 +72,7 @@ impl SpriteSheetAsset {
 
 /// sprite template for use in scenes
 #[derive(Debug)]
+#[derive(Default)]
 pub struct SpriteSheetAssetTemplate {
     pub sheet: Handle<SpriteSheetAsset>,
     pub image: Option<Handle<Image>>,
@@ -99,15 +100,6 @@ impl From<Handle<SpriteSheetAsset>> for SpriteSheetAssetTemplate {
     }
 }
 
-impl Default for SpriteSheetAssetTemplate {
-    fn default() -> Self {
-        Self {
-            sheet: Handle::default(),
-            image: None,
-            index: 0,
-        }
-    }
-}
 
 impl Template for SpriteSheetAssetTemplate {
     type Output = Sprite;

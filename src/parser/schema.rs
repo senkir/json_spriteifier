@@ -1,5 +1,5 @@
 use bevy::math::UVec2;
-use bevy::prelude::{info, Asset, Srgba, TypePath, URect};
+use bevy::prelude::{Asset, Srgba, TypePath, URect};
 use serde::de::{Error, MapAccess, SeqAccess};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -11,6 +11,7 @@ use std::fmt::Formatter;
 // both can export using a `json` schema that is pretty similar
 //
 #[derive(Asset, TypePath, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Default)]
 pub struct SpriteSheet {
     /// raw frame data
     #[serde(deserialize_with = "deserialize_sprite_sheet")]
@@ -24,16 +25,6 @@ pub struct SpriteSheet {
     pub meta: Meta,
 }
 
-impl Default for SpriteSheet {
-    fn default() -> Self {
-
-        Self {
-            frames: Vec::new(),
-            indices: HashMap::new(),
-            meta: Meta::default()
-        }
-    }
-}
 
 impl SpriteSheet {
     /// overall sheet size of source image
@@ -118,7 +109,7 @@ impl Default for Meta {
             size: UVec2::ZERO,
             image: "".to_string(),
             frame_tags: Vec::new(),
-            format: "".to_string()
+            format: "".to_string(),
         }
     }
 }
@@ -161,13 +152,13 @@ impl fmt::Display for Frame {
 
 impl From<Frame> for URect {
     fn from(frame: Frame) -> Self {
-        let out = URect::new(
+        
+        URect::new(
             frame.x as u32,
             frame.y as u32,
             frame.x as u32 + frame.w as u32,
             frame.y as u32 + frame.h as u32,
-        );
-        out
+        )
     }
 }
 
@@ -287,7 +278,6 @@ macro_rules! test_read_file {
 mod test {
     use super::*;
     use std::fs;
-    use serde_json::json;
 
     fn assert_data_of_type<T>(json: &str, expected: T)
     where
@@ -650,12 +640,11 @@ mod test {
             y: 0,
         };
         let out = URect::from(frame);
-        assert_eq!(URect::new(0,0,100,64), out);
+        assert_eq!(URect::new(0, 0, 100, 64), out);
         assert!(!out.is_empty());
         assert_eq!(out.width(), 100);
         assert_eq!(out.height(), 64);
     }
-
 
     #[test]
     fn test_box_from_frame_offset_x() {
@@ -666,7 +655,7 @@ mod test {
             w: 64,
         };
         let out = URect::from(frame);
-        assert_eq!(URect::new(448,0,512,64), out);
+        assert_eq!(URect::new(448, 0, 512, 64), out);
         assert!(!out.is_empty());
         assert_eq!(out.width(), 64);
         assert_eq!(out.height(), 64);

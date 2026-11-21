@@ -5,7 +5,7 @@ use crate::sheet::{KEY_TEXTURE_LAYOUT, SpriteSheetAsset};
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, LoadContext};
 use bevy::image::TextureAtlasLayout;
-use bevy::prelude::{info, TypePath};
+use bevy::prelude::TypePath;
 use serde_json::from_slice;
 use std::collections::HashMap;
 
