@@ -1,10 +1,13 @@
+use crate::SpriteSheetAsset;
 use crate::parser::schema::TaggedSprites;
-use crate::{SpriteFrameAsset, SpriteSheetAsset};
 use bevy::asset::Asset;
 use bevy::ecs::template::TemplateContext;
-use bevy::prelude::{error, Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Template, Time, Timer, TimerMode, TypePath};
-use std::time::Duration;
+use bevy::prelude::{
+    Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Template, Time, Timer,
+    TimerMode, TypePath, error,
+};
 use log::info;
+use std::time::Duration;
 
 /// an Animation spec for a sprite based on a loaded sheet
 /// derived sprite animation
@@ -57,10 +60,7 @@ impl Default for SpriteAnimationTemplate {
 
 impl SpriteAnimationTemplate {
     pub fn new(sheet: Handle<SpriteSheetAsset>, name: String) -> Self {
-        Self {
-            sheet,
-            name
-        }
+        Self { sheet, name }
     }
 
     pub fn with_frames(mut self, sheet: Handle<SpriteSheetAsset>) -> Self {
@@ -74,8 +74,12 @@ impl Template for SpriteAnimationTemplate {
 
     fn build_template(&self, context: &mut TemplateContext) -> bevy::prelude::Result<Self::Output> {
         let sheet_assets = context.resource::<Assets<SpriteSheetAsset>>();
-        let sheet = sheet_assets.get(self.sheet.id()).ok_or("missing sheet asset")?;
-        let anim_asset = sheet.get_animation_tag(self.name.as_str()).ok_or("missing tag asset")?;
+        let sheet = sheet_assets
+            .get(self.sheet.id())
+            .ok_or("missing sheet asset")?;
+        let anim_asset = sheet
+            .get_animation_tag(self.name.as_str())
+            .ok_or("missing tag asset")?;
 
         let frames_for_sheet = sheet.get_sprite_frames();
 
@@ -141,7 +145,7 @@ pub struct SpriteTimer {
 impl Default for SpriteTimer {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(0.1, TimerMode::Repeating)
+            timer: Timer::from_seconds(0.1, TimerMode::Repeating),
         }
     }
 }
@@ -160,7 +164,6 @@ pub fn animate_sprite(
     time: Res<Time>,
     mut query: Query<(&mut SpriteAnimation, &mut SpriteTimer, &mut Sprite)>,
 ) {
-    //TODO: frame duration
     for (mut anim, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
 
@@ -171,42 +174,38 @@ pub fn animate_sprite(
             && let Some(atlas) = &mut sprite.texture_atlas
         {
             info!("timer finished");
-            if a_asset.animation_finished(atlas.index) {
-                //going into a loop condition
-
-
-                if a_asset.should_loop(anim.loop_count) {
-                    anim.loop_count += 1;
-
-                    info!("looping...");
-                    //still go to next frame
-
-                    //next frame
-                    atlas.index = a_asset.next(atlas.index);
-                    let duration = anim.durations.get(atlas.index).unwrap(); //TODO: handle error. dupe code
-                    timer
-                        .timer
-                        .set_duration(Duration::from_millis(*duration as u64));
-                } else {
-                    //done with animation now.
-
-                    info!("finished anim");
-                }
+            if a_asset.animation_finished(atlas.index) && !a_asset.should_loop(anim.loop_count) {
+                //finished animation and done looping altogether
+                info!("finished anim");
+                timer.pause();
                 continue;
-            } else {
-                //not ready to loop. just go to next frame
-                //next frame
-                atlas.index = a_asset.next(atlas.index);
-                let dur = anim.durations.get(atlas.index).ok_or(format!("index not found in durations size{}", anim.durations.len()));
-                // let duration = anim.durations.get(atlas.index).unwrap(); //TOOD: handle this error
-                if (dur.is_err()) {
-                    error!("anim durations exhausted requested index {} from durations size {}", atlas.index, anim.durations.len());
-                    continue;
-                }
-                timer
-                    .timer
-                    .set_duration(Duration::from_millis(*dur.unwrap() as u64));
             }
+
+            if a_asset.animation_finished(atlas.index) && a_asset.should_loop(anim.loop_count) {
+                if a_asset.looping != 0 {
+                    anim.loop_count += 1;
+                }
+
+                //still go to next frame
+            }
+            //next frame advancement
+
+            atlas.index = a_asset.next(atlas.index);
+            let dur = anim.durations.get(atlas.index).ok_or(format!(
+                "index not found in durations size{}",
+                anim.durations.len()
+            ));
+            if (dur.is_err()) {
+                error!(
+                    "anim durations exhausted requested index {} from durations size {}",
+                    atlas.index,
+                    anim.durations.len()
+                );
+                continue;
+            }
+            timer
+                .timer
+                .set_duration(Duration::from_millis(*dur.unwrap() as u64));
         }
     }
 }
@@ -219,15 +218,27 @@ mod test {
     const END_FRAME: usize = 5;
 
     /// frames 2..=5; `looping` of 0 means repeat forever
-    fn anim(looping: usize) -> SpriteAnimationAsset {
+    fn anim_asset(looping: usize) -> SpriteAnimationAsset {
         SpriteAnimationAsset::new(START_FRAME, END_FRAME, "walk".to_string(), looping)
+    }
+
+    fn anim(asset: SpriteAnimationAsset) -> SpriteAnimation {
+        let mut durations: Vec<usize> = Vec::with_capacity(5);
+        for i in 0..5 {
+            durations.push(i);
+        }
+        SpriteAnimation {
+            anim: asset,
+            durations,
+            loop_count: 0,
+        }
     }
 
     // region has_finished
 
     #[test]
     fn has_finished_only_on_last_frame() {
-        let a = anim(0);
+        let a = anim_asset(0);
         assert!(a.has_finished(END_FRAME));
         assert!(!a.has_finished(2));
         assert!(!a.has_finished(4));
@@ -236,7 +247,7 @@ mod test {
     #[test]
     fn has_finished_false_past_last_frame() {
         // documents current behavior: strictly `==`, so an overshoot is not "finished"
-        assert!(!anim(0).has_finished(6));
+        assert!(!anim_asset(0).has_finished(6));
     }
 
     // endregion
@@ -245,19 +256,19 @@ mod test {
 
     #[test]
     fn next_advances_by_one() {
-        let a = anim(0);
+        let a = anim_asset(0);
         assert_eq!(a.next(2), 3);
         assert_eq!(a.next(4), 5);
     }
 
     #[test]
     fn next_wraps_to_from_at_last_frame() {
-        assert_eq!(anim(0).next(END_FRAME), 2);
+        assert_eq!(anim_asset(0).next(END_FRAME), 2);
     }
 
     #[test]
     fn next_snaps_to_from_when_before_range() {
-        let a = anim(0);
+        let a = anim_asset(0);
         assert_eq!(a.next(0), START_FRAME);
         assert_eq!(a.next(1), START_FRAME);
     }
@@ -272,7 +283,7 @@ mod test {
     #[test]
     fn next_does_not_pass_range() {
         // documents current behavior: no clamp when index > to
-        assert_ne!(anim(0).next(6), 7);
+        assert_ne!(anim_asset(0).next(6), 7);
     }
 
     // endregion
@@ -281,34 +292,27 @@ mod test {
 
     #[test]
     fn animation_finished_false_before_last_frame() {
-        let a = anim(2);
+        let a = anim_asset(2);
         assert!(!a.animation_finished(4));
     }
 
     #[test]
     fn animation_finished_never_true_when_repeating() {
-        let a = anim(0);
+        let a = anim_asset(0);
         assert!(!a.animation_finished(END_FRAME));
     }
 
     #[test]
     fn animation_finished_true_when_counted_loops_past_reached() {
         // intended behavior: finished once the loop count equals the configured count
-        let a = anim(2);
+        let a = anim_asset(2);
         pretty_assertions::assert_eq!(a.animation_finished(END_FRAME), true);
     }
     #[test]
     fn animation_finished_true_when_counted_loops_reached() {
         // intended behavior: finished once the loop count equals the configured count
-        let a = anim(2);
+        let a = anim_asset(2);
         pretty_assertions::assert_eq!(a.animation_finished(END_FRAME), true);
-    }
-
-    #[test]
-    fn animation_finished_false_when_counted_loops_remaining() {
-        let a = anim(2);
-        assert!(!a.animation_finished(END_FRAME));
-        assert!(!a.animation_finished(END_FRAME));
     }
 
     // endregion

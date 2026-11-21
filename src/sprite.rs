@@ -1,11 +1,8 @@
 pub mod spriteifier {
-    use std::fmt::format;
     use crate::animator::{SpriteAnimationTemplate, SpriteTimer};
-    use crate::{sheet, SpriteAnimationAsset, SpriteSheetAsset, SpriteSheetAssetTemplate};
-    use bevy::asset::{AssetServer, Handle};
+    use crate::{SpriteSheetAsset, SpriteSheetAssetTemplate, sheet};
+    use bevy::asset::Handle;
     use bevy::image::Image;
-    use bevy::prelude::{Scene, Template};
-    use bevy::scene::bsn;
 
     pub fn sprite_sheet(
         sheet: Handle<SpriteSheetAsset>,
@@ -21,11 +18,9 @@ pub mod spriteifier {
         SpriteAnimationTemplate::new(sheet, String::from(name))
     }
 
-    pub fn sheet_timer()-> SpriteTimer {
+    pub fn sheet_timer() -> SpriteTimer {
         SpriteTimer::from_seconds(0.1) //TODO: change seconds
-
     }
-
 
     /// tag asset name for tag name
     pub fn tag_name(name: &str) -> String {

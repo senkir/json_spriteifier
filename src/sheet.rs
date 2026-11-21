@@ -1,11 +1,10 @@
 use crate::{SpriteAnimationAsset, SpriteFrameAsset, SpriteSheet};
-use bevy::asset::{Asset, Assets, Handle, HandleTemplate};
+use bevy::asset::{Asset, Assets, Handle};
 use bevy::ecs::template::TemplateContext;
 use bevy::image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy::prelude::{Sprite, Template, TypePath};
 use std::collections::HashMap;
 use std::fmt::Formatter;
-
 
 pub const KEY_SPRITE_SHEET: &str = "sheet";
 pub const KEY_TEXTURE_LAYOUT: &str = "layout";
@@ -29,12 +28,12 @@ impl std::fmt::Display for SpriteSheetAsset {
     }
 }
 
-
 impl SpriteSheetAsset {
-    pub fn new(schema: &SpriteSheet,
-               layout: &Handle<TextureAtlasLayout>,
-               tags: HashMap<String, SpriteAnimationAsset>,
-               frames: Vec<SpriteFrameAsset>,
+    pub fn new(
+        schema: &SpriteSheet,
+        layout: &Handle<TextureAtlasLayout>,
+        tags: HashMap<String, SpriteAnimationAsset>,
+        frames: Vec<SpriteFrameAsset>,
     ) -> Self {
         Self {
             schema: schema.clone(),
@@ -50,9 +49,10 @@ impl SpriteSheetAsset {
         self.clone()
     }
 
-
     /// find matching tag
-    pub fn get_animation_tag(&self, tag: &str) -> Option<&SpriteAnimationAsset> { self.tagged_animations.get(tag) }
+    pub fn get_animation_tag(&self, tag: &str) -> Option<&SpriteAnimationAsset> {
+        self.tagged_animations.get(tag)
+    }
 
     /// find matching frame
 
@@ -63,7 +63,6 @@ impl SpriteSheetAsset {
     pub fn layout_key() -> String {
         KEY_TEXTURE_LAYOUT.to_string()
     }
-
 
     /// build a texture atlas for this sprite sheet
     pub fn atlas(&self, atlas_index: usize) -> TextureAtlas {
@@ -80,7 +79,6 @@ pub struct SpriteSheetAssetTemplate {
 }
 
 impl SpriteSheetAssetTemplate {
-
     pub fn with_image(&mut self, image: Handle<Image>) -> SpriteSheetAssetTemplate {
         self.image = Some(image);
         self.clone_template()
@@ -114,17 +112,17 @@ impl Default for SpriteSheetAssetTemplate {
 impl Template for SpriteSheetAssetTemplate {
     type Output = Sprite;
 
-
     fn build_template(&self, ctx: &mut TemplateContext) -> bevy::prelude::Result<Self::Output> {
         let sheets = ctx.resource::<Assets<SpriteSheetAsset>>();
-        let asset = sheets.get(self.sheet.id()).ok_or("sprite sheet not loaded")?;
+        let asset = sheets
+            .get(self.sheet.id())
+            .ok_or("sprite sheet not loaded")?;
         let img = if self.image.is_some() {
             self.image.clone()
         } else {
             asset.image.clone()
         };
         let image = img.ok_or("image not loaded in sheet")?;
-
 
         Ok(Sprite::from_atlas_image(
             image.clone(),
