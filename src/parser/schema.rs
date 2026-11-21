@@ -1,8 +1,9 @@
 use bevy::math::UVec2;
-use bevy::prelude::{Asset, Srgba, TypePath, URect};
+use bevy::prelude::{info, Asset, Srgba, TypePath, URect};
 use serde::de::{Error, MapAccess, SeqAccess};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
+use std::fmt;
 use std::fmt::Formatter;
 // region schema
 
@@ -17,10 +18,21 @@ pub struct SpriteSheet {
 
     ///point name keys to frame indices
     #[serde(skip)]
-    indices: HashMap<String, usize>,
+    pub indices: HashMap<String, usize>,
 
     /// useful metadata
     pub meta: Meta,
+}
+
+impl Default for SpriteSheet {
+    fn default() -> Self {
+
+        Self {
+            frames: Vec::new(),
+            indices: HashMap::new(),
+            meta: Meta::default()
+        }
+    }
 }
 
 impl SpriteSheet {
@@ -52,11 +64,25 @@ pub struct SpriteAtFrame {
     pub source_size: UVec2,
     #[serde(rename = "spriteSourceSize", deserialize_with = "deserialize_rect")]
     pub sprited_source_size: URect,
-    trimmed: bool,
+    pub trimmed: bool,
 
     /// Key from the object form of `frames`; `None` for the array form.
     #[serde(skip)]
     pub name: Option<String>,
+}
+
+impl Default for SpriteAtFrame {
+    fn default() -> Self {
+        Self {
+            name: None,
+            trimmed: false,
+            sprited_source_size: URect::EMPTY,
+            source_size: UVec2::ZERO,
+            frame: URect::EMPTY,
+            rotated: false,
+            duration: 0,
+        }
+    }
 }
 
 /// metadata
@@ -72,7 +98,7 @@ pub struct Meta {
     /// color image format eg: RGBA8888
     format: String,
     /// tagged sections used in specific animations
-    pub frame_tags: Vec<FrameTag>,
+    pub frame_tags: Vec<TaggedSprites>,
     /// related sheet image name
     pub image: String,
     /// scaling value
@@ -83,10 +109,24 @@ pub struct Meta {
     pub size: UVec2,
 }
 
+impl Default for Meta {
+    fn default() -> Self {
+        Self {
+            app: "".to_string(),
+            version: "".to_string(),
+            scale: 1,
+            size: UVec2::ZERO,
+            image: "".to_string(),
+            frame_tags: Vec::new(),
+            format: "".to_string()
+        }
+    }
+}
+
 /// tagged frame information
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct FrameTag {
+pub struct TaggedSprites {
     /// tag name
     pub name: String,
     /// the color filter for the sprite
@@ -99,9 +139,7 @@ pub struct FrameTag {
     /// end frame
     pub to: usize,
 
-    /// looping flag
-    /// Pixquare writes 0 = loop forever
-    /// Asprite omits it entirely
+    /// looping flag for animation counts
     #[serde(default, rename = "loop")]
     pub looping: usize,
 }
@@ -115,14 +153,21 @@ struct Frame {
     pub y: i32,
 }
 
+impl fmt::Display for Frame {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {}, {} {})", self.h, self.w, self.x, self.y)
+    }
+}
+
 impl From<Frame> for URect {
     fn from(frame: Frame) -> Self {
-        URect::new(
+        let out = URect::new(
             frame.x as u32,
             frame.y as u32,
-            frame.w as u32,
-            frame.h as u32,
-        )
+            frame.x as u32 + frame.w as u32,
+            frame.y as u32 + frame.h as u32,
+        );
+        out
     }
 }
 
@@ -171,7 +216,7 @@ where
     D: Deserializer<'de>,
 {
     let size = Size::deserialize(deserializer)?;
-    Ok(UVec2::new(size.w as u32, size.h as u32))
+    Ok(UVec2::from(size))
 }
 
 fn deserialize_rect<'de, D>(deserializer: D) -> Result<URect, D::Error>
@@ -180,12 +225,7 @@ where
 {
     let frame = Frame::deserialize(deserializer)?;
 
-    Ok(URect::new(
-        frame.x as u32,
-        frame.y as u32,
-        frame.w as u32,
-        frame.h as u32,
-    ))
+    Ok(URect::from(frame))
 }
 
 fn deserialize_sprite_sheet<'de, D>(deserializer: D) -> Result<Vec<SpriteAtFrame>, D::Error>
@@ -247,6 +287,7 @@ macro_rules! test_read_file {
 mod test {
     use super::*;
     use std::fs;
+    use serde_json::json;
 
     fn assert_data_of_type<T>(json: &str, expected: T)
     where
@@ -258,6 +299,15 @@ mod test {
             .unwrap_or_else(|e| panic!("failed at `{}`: {}", e.path(), e.inner()));
 
         pretty_assertions::assert_eq!(expected, actual, "data doesn't match");
+    }
+    fn parse_type<T>(json: &str) -> T
+    where
+        T: serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+    {
+        let mut de = serde_json::Deserializer::from_str(json);
+
+        serde_path_to_error::deserialize(&mut de)
+            .unwrap_or_else(|e| panic!("failed at `{}`: {}", e.path(), e.inner()))
     }
 
     #[test]
@@ -326,7 +376,7 @@ mod test {
         });
 
         let mut tags = Vec::new();
-        tags.push(FrameTag {
+        tags.push(TaggedSprites {
             direction: "forward".to_string(),
             from: 0,
             to: 6,
@@ -403,7 +453,7 @@ mod test {
         ));
 
         let mut tags = Vec::new();
-        tags.push(FrameTag {
+        tags.push(TaggedSprites {
             name: "Blink".to_string(),
             color: Srgba::hex("#FFFFFFFF").unwrap(),
             direction: "forward".to_string(),
@@ -434,7 +484,7 @@ mod test {
         vec.push(build_sprite_xy(30, 30, "Crow 0".to_string()));
 
         let mut tags = Vec::new();
-        tags.push(FrameTag {
+        tags.push(TaggedSprites {
             name: "Blink".to_string(),
             color: Srgba::hex("#FFFFFFFF").unwrap(),
             direction: "forward".to_string(),
@@ -508,7 +558,7 @@ mod test {
     fn test_frame_tag() {
         let json = r#"{ "name": "Blink", "from": 2, "to": 7, "direction": "forward", "color": "ffffffff" }"#;
 
-        let reference = FrameTag {
+        let reference = TaggedSprites {
             name: "Blink".to_string(),
             from: 2,
             to: 7,
@@ -523,7 +573,7 @@ mod test {
     fn test_frame_tag_looping() {
         let json = test_read_file!("frame_tag.json");
 
-        let reference = FrameTag {
+        let reference = TaggedSprites {
             name: "Blink".to_string(),
             from: 2,
             to: 7,
@@ -582,6 +632,44 @@ mod test {
             frame_tags: Vec::new(),
         };
         assert_data_of_type(json, matcher);
+    }
+
+    #[test]
+    fn test_vec_from_size() {
+        let size = Size { w: 512, h: 64 };
+        let out = UVec2::from(size);
+        assert_eq!(UVec2::new(512, 64), out);
+    }
+
+    #[test]
+    fn test_box_from_frame() {
+        let frame = Frame {
+            h: 64,
+            w: 100,
+            x: 0,
+            y: 0,
+        };
+        let out = URect::from(frame);
+        assert_eq!(URect::new(0,0,100,64), out);
+        assert!(!out.is_empty());
+        assert_eq!(out.width(), 100);
+        assert_eq!(out.height(), 64);
+    }
+
+
+    #[test]
+    fn test_box_from_frame_offset_x() {
+        let frame = Frame {
+            x: 448,
+            y: 0,
+            h: 64,
+            w: 64,
+        };
+        let out = URect::from(frame);
+        assert_eq!(URect::new(448,0,512,64), out);
+        assert!(!out.is_empty());
+        assert_eq!(out.width(), 64);
+        assert_eq!(out.height(), 64);
     }
 }
 

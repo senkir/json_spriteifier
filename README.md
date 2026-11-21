@@ -8,7 +8,7 @@ Reads from exported JSON format in apps like `Asprite` and `Pixquare`.
 [![Rust](https://github.com/senkir/json_spriteifier/actions/workflows/rust.yml/badge.svg)](https://github.com/senkir/json_spriteifier/actions/workflows/rust.yml)
 [![codecov](https://codecov.io/github/senkir/json_spriteifier/graph/badge.svg?token=I3NMG75RL0)](https://codecov.io/github/senkir/json_spriteifier)
 
-# Reasoning
+# Objective
 
 This library speeds up the workflow of mapping sprite sheets from apps like `Aseprite` and `Pixquare`.
 These apps generate helpful sprite sheets for modern games but require manual setup for each asset.  
@@ -22,6 +22,25 @@ It also greatly simplifies animation loops by passing back a name keyed spec whi
 - `TextureAtlasLayout` is generated automatically from the sprite spec.
 - `SpriteFrameAsset` is generated from individual frame data. keyed by name where it is available.
 - `SpriteAnimationAsset` is generated from tagged animation block data.
+
+# Compatibility
+
+This project has only been tested on Bevy `0.2.0` at this time.
+
+Bevy Compatibility:
+
+| Bevy Version |	Plugin Version |
+| ---- | ----- |
+| 0.20 |	0.4.0 |
+
+# Setup
+
+Installing directly via Github into  `cargo.toml`
+```
+json-spriteifier = { git = "https://github.com/senkir/json_spriteifier", tag = "v0.4.0" }
+```
+
+Not yet available on `crates.io`.
 
 # Usage
 

@@ -1,8 +1,10 @@
-use crate::parser::schema::FrameTag;
+use crate::parser::schema::TaggedSprites;
+use crate::{SpriteFrameAsset, SpriteSheetAsset};
 use bevy::asset::Asset;
-use bevy::prelude::{
-    Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Time, Timer, TypePath,
-};
+use bevy::ecs::template::TemplateContext;
+use bevy::prelude::{error, Assets, Component, Deref, DerefMut, Handle, Query, Res, Sprite, Template, Time, Timer, TimerMode, TypePath};
+use std::time::Duration;
+use log::info;
 
 /// an Animation spec for a sprite based on a loaded sheet
 /// derived sprite animation
@@ -11,46 +13,88 @@ pub struct SpriteAnimationAsset {
     from: usize,
     to: usize,
     pub tag: String,
-    looping: SpriteAnimationMode,
+    looping: usize,
 }
-
-#[derive(Component, Clone)]
-pub struct SpriteAnimation(pub Handle<SpriteAnimationAsset>);
 
 impl SpriteAnimationAsset {
-    pub fn from_tag(tag: FrameTag) -> SpriteAnimationAsset {
-        SpriteAnimationAsset::new(
-            //TODO make a size
-            tag.from,
-            tag.to,
-            tag.name,
-            tag.looping,
-        )
-    }
-}
-
-#[derive(Component, Clone, TypePath, Eq, PartialEq, Debug)]
-pub enum SpriteAnimationMode {
-    Repeating,
-    Counted(usize),
-}
-
-/// marker component for number of animation loops that have taken place
-#[derive(Component, Clone, TypePath)]
-pub struct SpriteLoopCount(pub Option<usize>);
-
-impl SpriteAnimationAsset {
-    pub fn new(from: usize, to: usize, tag: String, looping: usize) -> SpriteAnimationAsset {
-        let a_loop = if looping == 0 {
-            SpriteAnimationMode::Repeating
-        } else {
-            SpriteAnimationMode::Counted(looping)
-        };
-        SpriteAnimationAsset {
+    pub fn new(from: usize, to: usize, tag: String, looping: usize) -> Self {
+        Self {
             from,
             to,
             tag,
-            looping: a_loop,
+            looping,
+        }
+    }
+}
+
+impl From<TaggedSprites> for SpriteAnimationAsset {
+    fn from(value: TaggedSprites) -> Self {
+        SpriteAnimationAsset::new(value.from, value.to, value.name, value.looping)
+    }
+}
+
+/// component responsible for handling the actual animation
+#[derive(Component)]
+pub struct SpriteAnimation {
+    anim: SpriteAnimationAsset,
+    durations: Vec<usize>,
+    loop_count: usize,
+}
+
+pub struct SpriteAnimationTemplate {
+    sheet: Handle<SpriteSheetAsset>,
+    name: String,
+}
+
+impl Default for SpriteAnimationTemplate {
+    fn default() -> Self {
+        Self {
+            sheet: Handle::default(),
+            name: String::default(),
+        }
+    }
+}
+
+impl SpriteAnimationTemplate {
+    pub fn new(sheet: Handle<SpriteSheetAsset>, name: String) -> Self {
+        Self {
+            sheet,
+            name
+        }
+    }
+
+    pub fn with_frames(mut self, sheet: Handle<SpriteSheetAsset>) -> Self {
+        self.sheet = sheet;
+        self
+    }
+}
+
+impl Template for SpriteAnimationTemplate {
+    type Output = SpriteAnimation;
+
+    fn build_template(&self, context: &mut TemplateContext) -> bevy::prelude::Result<Self::Output> {
+        let sheet_assets = context.resource::<Assets<SpriteSheetAsset>>();
+        let sheet = sheet_assets.get(self.sheet.id()).ok_or("missing sheet asset")?;
+        let anim_asset = sheet.get_animation_tag(self.name.as_str()).ok_or("missing tag asset")?;
+
+        let frames_for_sheet = sheet.get_sprite_frames();
+
+        let mut durations = Vec::with_capacity(frames_for_sheet.len());
+        for (frame) in frames_for_sheet {
+            durations.push(frame.duration);
+        }
+
+        Ok(SpriteAnimation {
+            anim: anim_asset.clone(),
+            durations,
+            loop_count: 0,
+        })
+    }
+
+    fn clone_template(&self) -> Self {
+        SpriteAnimationTemplate {
+            sheet: self.sheet.clone(),
+            name: self.name.clone(),
         }
     }
 }
@@ -73,52 +117,96 @@ impl SpriteAnimationAsset {
 
     /// determine if the animation has finished playing
     /// NOTE: if AnimationMode::Repeating this will never be true
-    pub fn animation_finished(&self, index: usize, loops: &Option<usize>) -> bool {
-        if index < self.to || self.looping == SpriteAnimationMode::Repeating {
+    pub fn animation_finished(&self, index: usize) -> bool {
+        if index < self.to || self.looping == 0 {
             return false;
         }
+        true
+    }
 
-        match self.looping {
-            SpriteAnimationMode::Counted(number) => *loops >= Some(number),
-            _ => {
-                //fallback
-                false
-            }
+    pub fn should_loop(&self, loop_count: usize) -> bool {
+        if self.looping == 0 {
+            return true;
+        }
+
+        loop_count <= self.looping
+    }
+}
+
+#[derive(Component, Deref, DerefMut, Clone)]
+pub struct SpriteTimer {
+    timer: Timer,
+}
+
+impl Default for SpriteTimer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(0.1, TimerMode::Repeating)
         }
     }
 }
 
-#[derive(Component, Deref, DerefMut)]
-pub struct SpriteTimer {
-    timer: Timer,
+impl SpriteTimer {
+    //determine animation speed
+    pub fn from_seconds(seconds: f32) -> Self {
+        Self {
+            timer: Timer::from_seconds(seconds, TimerMode::Repeating),
+        }
+    }
 }
 
 /// run the animation for anything matching the given properties
 pub fn animate_sprite(
     time: Res<Time>,
-    assets: Assets<SpriteAnimationAsset>,
-    mut query: Query<(
-        &SpriteAnimation,
-        &SpriteLoopCount,
-        &mut SpriteTimer,
-        &mut Sprite,
-    )>,
+    mut query: Query<(&mut SpriteAnimation, &mut SpriteTimer, &mut Sprite)>,
 ) {
-    for (indices, count, mut timer, mut sprite) in &mut query {
+    //TODO: frame duration
+    for (mut anim, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
 
-        let Some(anim) = assets.get(&indices.0) else {
-            return;
-        };
+        let a_asset = anim.anim.clone();
 
-
+        //next frame triggered
         if timer.just_finished()
             && let Some(atlas) = &mut sprite.texture_atlas
         {
-            if anim.animation_finished(atlas.index, &count.0) {
-                return;
+            info!("timer finished");
+            if a_asset.animation_finished(atlas.index) {
+                //going into a loop condition
+
+
+                if a_asset.should_loop(anim.loop_count) {
+                    anim.loop_count += 1;
+
+                    info!("looping...");
+                    //still go to next frame
+
+                    //next frame
+                    atlas.index = a_asset.next(atlas.index);
+                    let duration = anim.durations.get(atlas.index).unwrap(); //TODO: handle error. dupe code
+                    timer
+                        .timer
+                        .set_duration(Duration::from_millis(*duration as u64));
+                } else {
+                    //done with animation now.
+
+                    info!("finished anim");
+                }
+                continue;
+            } else {
+                //not ready to loop. just go to next frame
+                //next frame
+                atlas.index = a_asset.next(atlas.index);
+                let dur = anim.durations.get(atlas.index).ok_or(format!("index not found in durations size{}", anim.durations.len()));
+                // let duration = anim.durations.get(atlas.index).unwrap(); //TOOD: handle this error
+                if (dur.is_err()) {
+                    error!("anim durations exhausted requested index {} from durations size {}", atlas.index, anim.durations.len());
+                    continue;
+                }
+                timer
+                    .timer
+                    .set_duration(Duration::from_millis(*dur.unwrap() as u64));
             }
-            atlas.index = anim.next(atlas.index);
         }
     }
 }
@@ -134,20 +222,6 @@ mod test {
     fn anim(looping: usize) -> SpriteAnimationAsset {
         SpriteAnimationAsset::new(START_FRAME, END_FRAME, "walk".to_string(), looping)
     }
-
-    // region new
-
-    #[test]
-    fn new_zero_loops_is_repeating() {
-        assert_eq!(anim(0).looping, SpriteAnimationMode::Repeating);
-    }
-
-    #[test]
-    fn new_nonzero_loops_is_counted() {
-        assert_eq!(anim(3).looping, SpriteAnimationMode::Counted(3));
-    }
-
-    // endregion
 
     // region has_finished
 
@@ -208,40 +282,33 @@ mod test {
     #[test]
     fn animation_finished_false_before_last_frame() {
         let a = anim(2);
-        assert!(!a.animation_finished(4, &Some(2)));
+        assert!(!a.animation_finished(4));
     }
 
     #[test]
     fn animation_finished_never_true_when_repeating() {
         let a = anim(0);
-        assert!(!a.animation_finished(END_FRAME, &Some(100)));
-        assert!(!a.animation_finished(END_FRAME, &None));
+        assert!(!a.animation_finished(END_FRAME));
     }
 
     #[test]
     fn animation_finished_true_when_counted_loops_past_reached() {
         // intended behavior: finished once the loop count equals the configured count
         let a = anim(2);
-        pretty_assertions::assert_eq!(a.animation_finished(END_FRAME, &Some(3)), true);
+        pretty_assertions::assert_eq!(a.animation_finished(END_FRAME), true);
     }
     #[test]
     fn animation_finished_true_when_counted_loops_reached() {
         // intended behavior: finished once the loop count equals the configured count
         let a = anim(2);
-        pretty_assertions::assert_eq!(a.animation_finished(END_FRAME, &Some(2)), true);
+        pretty_assertions::assert_eq!(a.animation_finished(END_FRAME), true);
     }
 
     #[test]
     fn animation_finished_false_when_counted_loops_remaining() {
         let a = anim(2);
-        assert!(!a.animation_finished(END_FRAME, &Some(1)));
-        assert!(!a.animation_finished(END_FRAME, &Some(0)));
-    }
-
-    #[test]
-    fn animation_finished_false_when_no_loop_count_yet() {
-        let a = anim(2);
-        assert!(!a.animation_finished(END_FRAME, &None));
+        assert!(!a.animation_finished(END_FRAME));
+        assert!(!a.animation_finished(END_FRAME));
     }
 
     // endregion
