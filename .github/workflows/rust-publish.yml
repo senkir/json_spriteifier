@@ -33,6 +33,6 @@ jobs:
     - name: package
       run: cargo package
     - name: gh
-      run: gh release create "${{GITHUB_REF_NAME}}" target/package/*.crate --generate-notes
+      run: gh release create "${{github.ref_name}}" target/package/*.crate --generate-notes
     env:
       GH_TOKEN: ${{github.token}}
