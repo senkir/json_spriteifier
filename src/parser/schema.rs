@@ -290,15 +290,6 @@ mod test {
 
         pretty_assertions::assert_eq!(expected, actual, "data doesn't match");
     }
-    fn parse_type<T>(json: &str) -> T
-    where
-        T: serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
-    {
-        let mut de = serde_json::Deserializer::from_str(json);
-
-        serde_path_to_error::deserialize(&mut de)
-            .unwrap_or_else(|e| panic!("failed at `{}`: {}", e.path(), e.inner()))
-    }
 
     #[test]
     fn test_full_frame_1() {
@@ -412,7 +403,7 @@ mod test {
         }
     }
 
-    fn build_sprite_xy(x: i32, y: i32, file: String) -> SpriteAtFrame {
+    fn build_sprite_xy(x: i32, y: i32) -> SpriteAtFrame {
         SpriteAtFrame {
             duration: 100,
             name: None,
@@ -471,7 +462,7 @@ mod test {
     fn test_crow_array() {
         let json = test_read_file!("crow_array.json");
         let mut vec = Vec::new();
-        vec.push(build_sprite_xy(30, 30, "Crow 0".to_string()));
+        vec.push(build_sprite_xy(30, 30));
 
         let mut tags = Vec::new();
         tags.push(TaggedSprites {
