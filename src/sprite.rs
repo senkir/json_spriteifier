@@ -19,7 +19,7 @@ pub mod spriteifier {
     }
 
     pub fn sheet_timer() -> SpriteTimer {
-        SpriteTimer::from_seconds(0.1) //TODO: change seconds
+        SpriteTimer::from_seconds(0.1)
     }
 
     /// tag asset name for tag name
